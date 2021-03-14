@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net" modified="2021-03-14T06:07:34.220Z" agent="5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.192 Safari/537.36" etag="XUQa-AE9LBqrx8sb_820" version="14.4.8" type="github">
+<mxfile host="app.diagrams.net" modified="2021-03-14T15:37:42.334Z" agent="5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.192 Safari/537.36" etag="tUTjlIffpVdq_4jXuEmI" version="14.4.8" type="github">
   <diagram id="D8fP1rWcKyjfJTmIoYzf" name="Page-1">
-    <mxGraphModel dx="925" dy="605" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1710" dy="857" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -422,7 +422,7 @@
         <mxCell id="3H3uGRBCsn2Afm0DeiXc-113" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.7;entryY=1.125;entryDx=0;entryDy=0;entryPerimeter=0;endArrow=none;endFill=0;" parent="1" source="3H3uGRBCsn2Afm0DeiXc-109" target="3H3uGRBCsn2Afm0DeiXc-53" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <UserObject label="hasFavoriteListing" lucidchartObjectId="i6Gjnlmd8xLU" id="3H3uGRBCsn2Afm0DeiXc-109">
+        <UserObject label="hasSavedListings" lucidchartObjectId="i6Gjnlmd8xLU" id="3H3uGRBCsn2Afm0DeiXc-109">
           <mxCell style="html=1;overflow=block;blockSpacing=1;whiteSpace=wrap;rhombus;whiteSpace=wrap;fontSize=13.3;fontColor=#ffffff;align=center;spacingLeft=8.4;spacingRight=8.4;spacingTop=2.4;spacing=3.8;strokeColor=#3700CC;strokeOpacity=100;fillOpacity=100;rounded=1;absoluteArcSize=1;arcSize=12;fillColor=#6a00ff;strokeWidth=0.8;" parent="1" vertex="1">
             <mxGeometry x="892.5" y="390" width="165" height="130" as="geometry" />
           </mxCell>
@@ -482,7 +482,7 @@
             <mxGeometry y="920" width="510" height="144.5" as="geometry" />
           </mxCell>
         </UserObject>
-        <mxCell id="3H3uGRBCsn2Afm0DeiXc-146" value="saved_listings is a comma separated string with listing_ids" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;" parent="1" vertex="1">
+        <mxCell id="3H3uGRBCsn2Afm0DeiXc-146" value="saved_listings is a comma separated string with listing_ids?" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;" parent="1" vertex="1">
           <mxGeometry x="810" y="780" width="330" height="20" as="geometry" />
         </mxCell>
         <UserObject label="1:1" lucidchartObjectId="57Gj_qIqhHUQ" id="3H3uGRBCsn2Afm0DeiXc-128">
@@ -490,8 +490,11 @@
             <mxGeometry x="1320" y="245.88" width="45" height="45" as="geometry" />
           </mxCell>
         </UserObject>
-        <mxCell id="L0npUcMCzUDplaPoUxQo-1" value="&lt;span style=&quot;font-family: &amp;#34;helvetica&amp;#34; ; font-size: 13.3px ; font-style: normal ; font-weight: 400 ; letter-spacing: normal ; text-align: center ; text-indent: 0px ; text-transform: none ; word-spacing: 0px ; background-color: rgb(248 , 249 , 250) ; display: inline ; float: none&quot;&gt;&lt;font color=&quot;#ff0000&quot;&gt;For saved_listings do I create comma separated listing_id single attribute or a separate relation called saved listings?&lt;/font&gt;&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+        <mxCell id="L0npUcMCzUDplaPoUxQo-1" value="&lt;span style=&quot;font-family: &amp;#34;helvetica&amp;#34; ; font-size: 13.3px ; font-style: normal ; font-weight: 400 ; letter-spacing: normal ; text-align: center ; text-indent: 0px ; text-transform: none ; word-spacing: 0px ; background-color: rgb(248 , 249 , 250) ; display: inline ; float: none&quot;&gt;&lt;font color=&quot;#ff0000&quot;&gt;For saved_listings do I create comma separated listing_id single attribute or a separate relation called saved listings?&lt;/font&gt;&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="710" y="850" width="550" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="fYfl7tJpDpbcizdKrOSa-1" value="is_new is valid? because our application is used car data" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="405" y="760" width="242" height="20" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
