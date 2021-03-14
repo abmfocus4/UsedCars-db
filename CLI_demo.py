@@ -292,7 +292,7 @@ def display():
     while (1):
         print("")
         print("Select a listing to view it in detail, save it, or buy it.")
-        
+
         options = []
         for listing in g_listings:
             options.append(listing["make"] + " " + listing["model"])
@@ -415,6 +415,8 @@ def editlisting(l_id):
             clear_nav()
             main()
             break
+
+    nav_up()
 
 def removefilters():
     nav_down("remove_filters")
