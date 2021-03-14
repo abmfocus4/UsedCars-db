@@ -1,3 +1,4 @@
+g_loc = []
 g_username = ""
 g_password = ""
 g_listings = [
@@ -92,7 +93,6 @@ def parse(input):
 
 def list_options(options):
     print("")
-    print("Options:")
     for index, option in enumerate(options):
         print(str(index + 1) + ". " + option)
 
@@ -105,12 +105,30 @@ def get_input(options):
         selection = parse(raw_input("Select an option: "))
     return selection
 
+def clear_nav():
+    g_loc = []
+
+def nav_down(level):
+    g_loc.append(level)
+    get_loc()
+
+def nav_up():
+    g_loc.pop()
+    get_loc()
+
+def get_loc():
+    location = ""
+    for level in g_loc:
+        location += "/" + level
+    print("")
+    print(location)
+
 def active_filter(f):
     return f["active"]
 
 def main():
     options = ["Search Listings", "Create Listing", "View Your Listings", "View Saved Listings"]
-
+    nav_down("main")
     while (1):
         selection = get_input(options)
         if (selection == 1):
@@ -124,6 +142,7 @@ def main():
         elif (selection == 0):
             continue
         else:
+            clear_nav()
             main()
             return
 
@@ -134,38 +153,84 @@ def startup():
     main()
 
 def login():
-    print("")
-    g_username = raw_input("username: ")
-    g_password = raw_input("password: ")
+    options = ["Sign Up", "Log In"]
+    g_username = "user"
+    pw1 = "1"
+    pw2 = "2"
+    nav_down("login")
 
-    while (g_username != "root" and g_password != "password"):
-        print("Invalid credentials.")
-        g_username = raw_input("username:")
-        g_password = raw_input("password:")
+    while (1):
+        selection = get_input(options)
+        if (selection == 1):
+            g_username = "tempUser234"
+            print("Your username is '" + g_username + "'")
+            while (pw1 != pw2):
+                pw1 = raw_input("Enter your password: ")
+                pw2 = raw_input("Confirm password: ")
+                if (pw1 != pw2):
+                    print("Passwords do not match.")
+            g_password = pw1
+            break
+        elif (selection == 2):
+            g_username = raw_input("username: ")
+            g_password = raw_input("password: ")
+            break
+        elif (selection == 0):
+            continue
+        elif (selection == -1):
+            continue
+    
+    print("Login successful!")
+
+    nav_up()
 
 def saved_listings():
-    print("")
-    print("Looks like you haven't saved any listings! You can do so from the search page.")
+    nav_down("saved_listings")
+
+    if (len(g_saved_listings) == 0):
+        print("Looks like you haven't saved any listings! You can do so from the search page.")
+    else:
+        while(1):
+            options = []
+            for l in g_saved_listings:
+                g_l = g_listings[l]
+                options.append(g_l["make"] + " " + g_l["model"])
+            selection = get_input(options)
+            if (selection > 0 and selection <= len(options)):
+                detail(g_saved_listings[selection - 1])
+            elif (selection == 0):
+                break
+            elif (selection == -1):
+                clear_nav()
+                main()
+                return
+    
+    nav_up()
 
 def owned_listings():
-    print("")
+    nav_down("owned_listings")
     if (len(g_owned_listings) == 0):
         print("Looks like you don't have any listings! You can create them from the main page.")
     else:
-        options = []
-        for i, l in enumerate(g_owned_listings):
-            listing = g_listings[l]
-            options.append(listing["make"] + " " + listing["model"])
-        selection = get_input(options)
-        if (selection > 0 and selection <= len(options)):
-            detail(g_owned_listings[selection - 1])
-        elif (selection == 0):
-            return
-        else:
-            main()
-            return
+        while (1):
+            options = []
+            for i, l in enumerate(g_owned_listings):
+                listing = g_listings[l]
+                options.append(listing["make"] + " " + listing["model"])
+            selection = get_input(options)
+            if (selection > 0 and selection <= len(options)):
+                detail(g_owned_listings[selection - 1])
+            elif (selection == 0):
+                break
+            elif (selection == -1):
+                clear_nav()
+                main()
+                return
+
+    nav_up()
         
 def new_listing():
+    nav_down("new_listing")
     print("")
     make = raw_input("Enter vehicle make: ")
     model = raw_input("Enter vehicle model: ")
@@ -199,15 +264,16 @@ def new_listing():
     else:
         print("Listing cancelled.")
     
+    nav_up()
     return
 
 def search():
-    print("")
-    options = ["Filter By", "View & Remove Filters", "Search"]
+    nav_down("search")
+    options = ["Add Filters", "View & Remove Filters", "Display Results"]
     while (1):
         selection = get_input(options)
         if (selection == 1):
-            filterby()
+            addfilters()
         elif (selection == 2):
             removefilters()
         elif (selection == 3):
@@ -215,28 +281,36 @@ def search():
         elif (selection == 0):
             break
         else:
+            clear_nav()
             main()
             return
 
+    nav_up()
+
 def display():
-    print("")
-    options = []
-    for listing in g_listings:
-        options.append(listing["make"] + " " + listing["model"])
+    nav_down("search_results")
     while (1):
+        print("")
         print("Select a listing to view it in detail, save it, or buy it.")
+        
+        options = []
+        for listing in g_listings:
+            options.append(listing["make"] + " " + listing["model"])
         selection = get_input(options)
         if (selection > 0 and selection <= len(options)):
             detail(selection - 1)
         elif (selection == 0):
+            nav_up()
             return
         else:
+            clear_nav()
             main()
             return
 
 def detail(l_id):
-    print("")
+    nav_down("listing_detail")
     l = g_listings[l_id]
+    print("")
     print("Make: " + str(l["make"]))
     print("Model: " + str(l["model"]))
     print("Year: " + str(l["year"]))
@@ -244,33 +318,106 @@ def detail(l_id):
     print("New: " + str(l["new"]))
     print("VIN: " + str(l["vin"]))
     options = []
-    owned = l_id in g_owned_listings
-    if (owned):
-        options = ["Edit Listing", "Remove Listing"]
-    else:
-        options = ["Save Listing", "Purchase Vehicle"]
+
     while (1):
+        owned = l_id in g_owned_listings
+        saved = l_id in g_saved_listings
+
+        if (owned):
+            options = ["Edit Listing", "Remove Listing"]
+        else:
+            if (saved):
+                options = ["Unsave Listing", "Purchase Vehicle"]
+            else:
+                options = ["Save Listing", "Purchase Vehicle"]
         selection = get_input(options)
         if (owned):
             if (selection == 1):
-                print("Edit listing would open here.")
+                editlisting(l_id)
             elif (selection == 2):
-                print("Remove listing would open here.")
+                removelisting(l_id)
+                nav_up()
+                return
+            elif (selection == 0):
+                nav_up()
+                return
             else:
+                clear_nav()
+                main()
                 return
         else:
             if (selection == 1):
-                print("Listing saved; view it from the main page.")
+                if (saved):
+                    g_saved_listings.remove(l_id)
+                    print("Removed from saved listings.")
+                else:
+                    g_saved_listings.append(l_id)
+                    print("Listing saved; view it from the main page.")
             elif (selection == 2):
                 vehicle = g_listings[l_id]
                 g_listings.remove(vehicle)
                 print("Vehicle purchased! Thank you for your patronage.")
+                nav_up()
+                return
+            elif (selection == 0):
+                nav_up()
                 return
             else:
+                clear_nav()
+                main()
                 return
 
-def removefilters():
+def removelisting(l_id):
+    nav_down("remove_listing")
     print("")
+    print("VIN: " + str(g_listings[l_id]["vin"]))
+    confirm = raw_input("Enter this vehicle's VIN to confirm listing deletion: ")
+    if (confirm == str(g_listings[l_id]["vin"])):
+        g_listings.remove(g_listings[l_id])
+        g_owned_listings.remove(l_id)
+        print("Listing removed.")
+    else:
+        print("Listing not removed.")
+
+    nav_up()
+
+def editlisting(l_id):
+    nav_down("edit_listing")
+    l = g_listings[l_id]
+    print("")
+    print("Make: " + str(l["make"]))
+    print("Model: " + str(l["model"]))
+    print("Year: " + str(l["year"]))
+    print("Price: " + str(l["price"]))
+    print("New: " + str(l["new"]))
+    print("VIN: " + str(l["vin"]))
+    options = []
+    for f in g_filters:
+        options.append(f["name"])
+
+    options.append("View Details")
+    
+    while (1):
+        selection = get_input(options)
+        if (selection > 0 and selection < len(options)):
+            value = raw_input("Enter a new value for " + options[selection - 1] + ": ")
+            l[options[selection - 1].lower()] = value
+        elif (selection == len(options)):
+            print("Make: " + str(l["make"]))
+            print("Model: " + str(l["model"]))
+            print("Year: " + str(l["year"]))
+            print("Price: " + str(l["price"]))
+            print("New: " + str(l["new"]))
+            print("VIN: " + str(l["vin"]))
+        elif (selection == 0):
+            break
+        else:
+            clear_nav()
+            main()
+            break
+
+def removefilters():
+    nav_down("remove_filters")
     print("Select a filter to remove it")
     while (1):
         active_filters = filter(active_filter, g_filters);
@@ -279,15 +426,18 @@ def removefilters():
 
         if (len(active_filters) == 0):
             print("No active filters; returning to search.")
+            nav_up()
             return
 
         selection = parse(raw_input("Select an option: "))
-        if (int(selection) < 1 or int(selection) > len(active_filters)):
+        if (selection < 1 or selection > len(active_filters)):
             print("Invalid input.")
             continue
         elif (selection == 0):
+            nav_up()
             return
         elif (selection == -1):
+            clear_nav()
             main()
             return
         else:
@@ -297,10 +447,10 @@ def removefilters():
                     break
 
 def editfilter(index):
-    print("")
+    nav_down("edit_filter")
     f = g_filters[index]
     prompt1 = "Enter one of "
-    prompt2 = "Select a value for this relationship: "
+    prompt2 = "Select a value for this filter (" + f["name"] + "): "
     if (f["f_type"] == "equality"):
         prompt1 += "'=', '!='"
     elif (f["f_type"] == "range"):
@@ -308,7 +458,7 @@ def editfilter(index):
     else:
         prompt1 += "'1', '0'"
     
-    prompt1 += " for the filter relationship: "
+    prompt1 += " for the " + f["name"] + " filter operator: "
 
     rel = raw_input(prompt1)
     val = raw_input(prompt2)
@@ -317,10 +467,11 @@ def editfilter(index):
     f["relationship"] = rel
     f["value"] = val
 
+    nav_up()
     return
 
-def filterby():
-    print("")
+def addfilters():
+    nav_down("add_filters")
     options = []
     for f in g_filters:
         options.append(f["name"])
@@ -329,8 +480,10 @@ def filterby():
         if (selection > 0 and selection <= len(g_filters)):
             editfilter(selection - 1)
         elif (selection == 0):
+            nav_up()
             break
         elif (selection == -1):
+            clear_nav()
             main()
             return
         else:
