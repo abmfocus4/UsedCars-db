@@ -432,21 +432,19 @@ def removefilters():
             return
 
         selection = parse(raw_input("Select an option: "))
-        if (selection < 1 or selection > len(active_filters)):
-            print("Invalid input.")
-            continue
-        elif (selection == 0):
-            nav_up()
-            return
-        elif (selection == -1):
-            clear_nav()
-            main()
-            return
-        else:
+        if (selection > 0 and selection <= len(active_filters)):
             for f in g_filters:
                 if (f["name"] == active_filters[selection - 1]["name"]):
                     f["active"] = 0
                     break
+        elif (selection == 0):
+            break
+        elif (selection == -1):
+            clear_nav()
+            main()
+            return
+
+    nav_up()
 
 def editfilter(index):
     nav_down("edit_filter")
