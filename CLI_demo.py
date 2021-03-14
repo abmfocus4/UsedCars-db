@@ -130,7 +130,7 @@ def main():
 def startup():
     print("Welcome to Ottotradr: a used car sales platform that's definitely not affiliated with Auto Trader.")
     print("Navigate the application using the prompts, using 'q' to quit & 'b' to navigate back.")
-    # login()
+    login()
     main()
 
 def login():
