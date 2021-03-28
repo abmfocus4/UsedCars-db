@@ -1,6 +1,6 @@
 -- Clean dB
-drop table if exists User;
 drop table if exists PhoneNumber;
+drop table if exists User;
 drop table if exists Listing;
 drop table if exists Address1;
 drop table if exists Address2;
@@ -15,8 +15,7 @@ drop table if exists FuelSpecs;
 drop table if exists DepreciationFactors;
 drop table if exists CarOwners;
 -- Clean outfile
-\! rm -f cars-outfile.txt
-tee cars-outfile.txt;
+\ ! rm - f cars - outfile.txt tee cars - outfile.txt;
 warnings;
 -- User
 select 'User' as '';
@@ -48,11 +47,10 @@ values (
         `password`,
         `Admin`
     ),
-,
     (
         `connor.peter.barker@uwaterloo.ca`,
-        `Connor`,
-        `Barker`,
+        'Connor',
+        'Barker',
         `password`,
         `Admin`
     );
