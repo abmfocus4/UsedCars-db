@@ -15,7 +15,8 @@ drop table if exists FuelSpecs;
 drop table if exists DepreciationFactors;
 drop table if exists CarOwners;
 -- Clean outfile
-\ ! rm - f cars - outfile.txt tee cars - outfile.txt;
+\! rm -f cars_outfile.txt 
+tee cars_outfile.txt;
 warnings;
 -- User
 select 'User' as '';
@@ -68,9 +69,9 @@ create table Listing (
     listingId int not null unique,
     listingDate date not null,
     daysOnMarket int,
-    description varchar(400),
+    description varchar(1000),
     mainPictureURL varchar(400),
-    majorOptions varchar(400),
+    majorOptions varchar(1000),
     price decimal(9, 2),
     dealerEmail varchar(125),
     primary key (listingId)
@@ -233,9 +234,8 @@ set listingId = @col39,
 -- Address2
 select 'Address2' as '';
 create table Address2 (
-    listingId int not null unique,
-    latitude decimal(2, 2),
-    longitude decimal(3, 2),
+    listingId int not null unique latitude decimal(6, 4),
+    longitude decimal(7, 4),
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
 );
@@ -313,7 +313,7 @@ set listingId = @col39,
 -- DealerDetails
 select 'DealerDetails' as '';
 create table DealerDetails (
-    listingId decimal(9, 0),
+    listingId int not null unique,
     franchiseDealer decimal(2, 2),
     sellerRating decimal(3, 2),
     primary key (listingId),
@@ -394,9 +394,9 @@ set listingId = @col39,
 select 'Appointment' as '';
 create table Appointment (
     appointmentNumber int not null,
-    dealerEmail not null,
-    customerEmail not null,
-    appointmentDateTime not null datetime,
+    dealerEmail varchar(125) not null,
+    customerEmail varchar(125) not null,
+    appointmentDateTime datetime not null,
     information varchar(400),
     primary key (appointmentNumber, dealerEmail, customerEmail),
     foreign key (dealerEmail) references User(email),
