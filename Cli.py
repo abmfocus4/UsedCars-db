@@ -269,6 +269,7 @@ def login():
                         if ( i["password"] != f_password ):
                             print(" incorrect password ")
                             error_because_of_bad_password = 1
+                            login()
                         else:
                             g_username = f_username
                             g_password = f_password
@@ -276,7 +277,7 @@ def login():
                     
                 if (error_because_of_bad_password == 0 and g_username == ""):
                    print("user not found")
-            
+                   login()
             break
             
         elif (selection == 0):
