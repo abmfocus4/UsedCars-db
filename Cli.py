@@ -186,10 +186,10 @@ def login():
     },
     {
         "emailAddress":"connor.peter.barker@uwaterloo.ca",
-        "username":"connerAdmin",
-        "firstName":"Conner",
+        "username":"connorAdmin",
+        "firstName":"Connor",
         "lastName":"Barker",
-        "password":"Admin1$a",
+        "password":"Admin1!a",
         "userType":"Admin",
         "phoneNumber": "no",
         "postalcode":"no"
@@ -236,7 +236,7 @@ def login():
 
             is_valid_postal = False
             while ( not is_valid_postal ):
-                g_postal = input("Enter your phone number, if you don't have one then enter no: ")
+                g_postal = input("Enter your postal code, if you don't have one then enter no: ")
                 if ( ( len(g_postal)<=32 ) or ( g_postal == "no" ) ):
                    is_valid_postal = True       
             
