@@ -22,7 +22,7 @@ warnings;
 select 'User' as '';
 create table User (
     email varchar(125),
-    username varchar(125)
+    username varchar(125),
     firstName varchar(125),
     lastName varchar(125),
     pass varchar(40) not null,
