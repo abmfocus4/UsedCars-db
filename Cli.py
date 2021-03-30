@@ -1,5 +1,17 @@
 import re
 import json
+import sqlalchemy as db
+# this script also requires pymysql & cryptography to be installed with the below command
+# pip3 install pymysql cryptography
+
+# specify database configurations
+config = {
+    'host': 'localhost',
+    'port': 3307,
+    'user': 'admin',
+    'password': 'password',
+    'database': 'Cars'
+}
 
 g_loc = []
 
@@ -86,6 +98,18 @@ g_filters = [
     }
 ]
 
+# set up db connection
+
+db_user = config.get('user')
+db_pwd = config.get('password')
+db_host = config.get('host')
+db_port = config.get('port')
+db_name = config.get('database')
+# specify connection string
+connection_str = f'mysql+pymysql://{db_user}:{db_pwd}@{db_host}:{db_port}/{db_name}'
+# connect to database
+engine = db.create_engine(connection_str)
+connection = engine.connect()
 
 def parse(input):
     try:
