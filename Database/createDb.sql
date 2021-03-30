@@ -22,16 +22,19 @@ warnings;
 select 'User' as '';
 create table User (
     email varchar(125),
+    username varchar(125)
     firstName varchar(125),
     lastName varchar(125),
     pass varchar(40) not null,
     userType varchar(8) not null,
     primary key (email),
+    unique(username),
     check(userType in ('Admin', 'Customer', 'Dealer'))
 );
-insert into User(email, firstName, lastName, pass, userType)
+insert into User(email, username, firstName, lastName, pass, userType)
 values (
         'bmalapat@uwaterloo.ca',
+        'bmalapat',
         'Meg',
         'Alapati',
         'Pass123!@#',
@@ -39,13 +42,15 @@ values (
     ),
     (
         's2ishraq@uwaterloo.ca',
+        's2ishraq',
         'Shwapneel',
         'Ishraq',
         'Pass123!@#',
         'Admin'
     ),
     (
-        'connor.peter.barker@uwaterloo.ca',
+        'cpbarker@uwaterloo.ca',
+        'cpbarker',
         'Connor',
         'Barker',
         'Pass123!@#',
