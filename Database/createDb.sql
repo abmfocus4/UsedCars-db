@@ -18,7 +18,7 @@ drop table if exists CarOwners;
 \! rm -f cars_outfile.txt 
 tee cars_outfile.txt;
 warnings;
--- User
+-- User, tested
 select 'User' as '';
 create table User (
     email varchar(125),
@@ -51,7 +51,7 @@ values (
         'Pass123!@#',
         'Admin'
     );
--- PhoneNumber
+-- PhoneNumber, tested
 select 'PhoneNumber' as '';
 create table PhoneNumber (
     userEmail varchar(125),
@@ -147,7 +147,10 @@ set listingId = @col39,
     mainPictureURL = @col41,
     majorOptions = @col42,
     price = @col49;
--- Address1
+update Listing
+set dealerEmail = 'bmalapat@uwaterloo.ca'
+where dealerEmail = null;
+-- Address1, testing
 select 'Address1' as '';
 create table Address1 (
     listingId int not null unique,
