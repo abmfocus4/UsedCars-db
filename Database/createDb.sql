@@ -230,7 +230,8 @@ set listingId = @col39,
 -- Address2
 select 'Address2' as '';
 create table Address2 (
-    listingId int not null unique latitude decimal(6, 4),
+    listingId int not null unique,
+    latitude decimal(6, 4),
     longitude decimal(7, 4),
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
