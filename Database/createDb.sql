@@ -1,10 +1,10 @@
 -- Clean dB
 drop table if exists PhoneNumber;
 drop table if exists User;
-drop table if exists Listing;
 drop table if exists Address1;
 drop table if exists Address2;
 drop table if exists DealerDetails;
+drop table if exists Listing;
 drop table if exists Appointment;
 drop table if exists Car;
 drop table if exists TrimPackage;
@@ -18,7 +18,7 @@ drop table if exists CarOwners;
 \! rm -f cars_outfile.txt 
 tee cars_outfile.txt;
 warnings;
--- User
+-- User, tested
 select 'User' as '';
 create table User (
     email varchar(125),
@@ -27,35 +27,31 @@ create table User (
     pass varchar(40) not null,
     userType varchar(8) not null,
     primary key (email),
-    check(email regexp '^\S+@\S+\.\S+$'),
-    check(
-        pass regexp '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
-    ),
     check(userType in ('Admin', 'Customer', 'Dealer'))
 );
 insert into User(email, firstName, lastName, pass, userType)
 values (
-        `bmalapat@uwaterloo.ca`,
-        `Meg`,
-        `Alapati`,
-        `password`,
-        `Admin`
+        'bmalapat@uwaterloo.ca',
+        'Meg',
+        'Alapati',
+        'Pass123!@#',
+        'Admin'
     ),
     (
-        `s2ishraq@uwaterloo.ca`,
-        `Shwapneel`,
-        `Ishraq`,
-        `password`,
-        `Admin`
+        's2ishraq@uwaterloo.ca',
+        'Shwapneel',
+        'Ishraq',
+        'Pass123!@#',
+        'Admin'
     ),
     (
-        `connor.peter.barker@uwaterloo.ca`,
+        'connor.peter.barker@uwaterloo.ca',
         'Connor',
         'Barker',
-        `password`,
-        `Admin`
+        'Pass123!@#',
+        'Admin'
     );
--- PhoneNumber
+-- PhoneNumber, tested
 select 'PhoneNumber' as '';
 create table PhoneNumber (
     userEmail varchar(125),
@@ -151,7 +147,10 @@ set listingId = @col39,
     mainPictureURL = @col41,
     majorOptions = @col42,
     price = @col49;
--- Address1
+update Listing
+set dealerEmail = 'bmalapat@uwaterloo.ca'
+where dealerEmail = null;
+-- Address1, testing
 select 'Address1' as '';
 create table Address1 (
     listingId int not null unique,
@@ -234,7 +233,8 @@ set listingId = @col39,
 -- Address2
 select 'Address2' as '';
 create table Address2 (
-    listingId int not null unique latitude decimal(6, 4),
+    listingId int not null unique,
+    latitude decimal(6, 4),
     longitude decimal(7, 4),
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
