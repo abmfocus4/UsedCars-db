@@ -1,8 +1,26 @@
 import re
 import json
 import sqlalchemy as db
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 # this script also requires pymysql & cryptography to be installed with the below command
-# pip3 install pymysql cryptography
+# `pip3 install pymysql cryptography`
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = 'User'
+
+    email = db.Column('email', db.String(125), primary_key=True, nullable=False)
+    username = db.Column('username', db.String(125), nullable=True)
+    firstName = db.Column('firstName', db.String(125), nullable=True)
+    lastName = db.Column('lastName', db.String(125), nullable=True)
+    password = db.Column('pass', db.String(40), nullable=False)
+    userType = db.Column('userType', db.String(8), nullable=False)
+
+    def __repr__(self):
+        return "<User(email='%s', username='%s', firstName='%s', lastName='%s', pass='%s', userType='%s')>" % (
+                             self.email, self.username, self.firstName, self.lastName, self.password, self.userType)
 
 # specify database configurations
 config = {
@@ -99,7 +117,6 @@ g_filters = [
 ]
 
 # set up db connection
-
 db_user = config.get('user')
 db_pwd = config.get('password')
 db_host = config.get('host')
@@ -110,6 +127,7 @@ connection_str = f'mysql+pymysql://{db_user}:{db_pwd}@{db_host}:{db_port}/{db_na
 # connect to database
 engine = db.create_engine(connection_str)
 connection = engine.connect()
+Session = sessionmaker(bind=engine)
 
 def parse(input):
     try:
@@ -185,40 +203,6 @@ def startup():
 
 #get the user to sign up or log into an account
 def login():
-
-    #add ending ] at login()
-    g_user = """ [
-        {
-        "emailAddress":"bmalapat@uwaterloo.ca",
-        "username":"megAdmin",
-        "firstName":"Mag",
-        "lastName":"Alapati",
-        "password":"Admin1$a",
-        "userType":"Admin",
-        "phoneNumber": "no",
-        "postalcode":"no"
-    },
-    {
-        "emailAddress":"s2ishraq@uwaterloo.ca",
-        "username":"shwapAdmin",
-        "firstName":"Shwapneel",
-        "lastName":"Ishraq",
-        "password":"Admin1$a",
-        "userType":"Admin",
-        "phoneNumber": "no",
-        "postalcode":"no"
-    },
-    {
-        "emailAddress":"connor.peter.barker@uwaterloo.ca",
-        "username":"connorAdmin",
-        "firstName":"Connor",
-        "lastName":"Barker",
-        "password":"Admin1!a",
-        "userType":"Admin",
-        "phoneNumber": "no",
-        "postalcode":"no"
-    }"""
-
     options = ["Sign Up", "Log In"]
     g_username = "user"
     pw1 = "1"
@@ -231,7 +215,7 @@ def login():
         if (selection == 1):
             userType = "select"
             while ( (userType != 'Customer') and (userType != 'Dealer') ):
-                 userType = input("Are you a 'Customer' or a 'Dealer' (Spell Customer or Dealer exactly the same as this)?: ")
+                userType = input("Are you a 'Customer' or a 'Dealer' (Spell Customer or Dealer exactly the same as this)?: ")
 
             g_username = input("enter your username: ")
             g_firstname = input("enter your firstname: ")
@@ -266,9 +250,11 @@ def login():
             
             user_info_json = ',{"username":\"' + g_username + "\",\"fistname\":\"" + g_firstname + "\",\"lastname\":\"" + g_lastname +"\",\"password\":\"" + g_password + "\",\"email\":\"" + g_email + "\",\"phone\":\"" + g_phone + "\",\"postal code\":\"" + g_postal + '\"}'
 
-            print(user_info_json)
+            new_user = User(email=g_email, username=g_username, firstName=g_firstname, lastName=g_lastname, password=g_password, userType=userType)
 
-            g_user += user_info_json 
+            session = Session()
+            session.add(new_user)
+            session.commit()
 
             break
         elif (selection == 2):
@@ -282,26 +268,25 @@ def login():
                 f_username = input("username: ")
                 f_password = input("password: ")
 
-                all_users = g_user + "]"
-                all_users_json_formatted = json.loads(all_users)
-
                 error_because_of_bad_password = 0
 
-                for i in all_users_json_formatted:
-                
-                    if ( i["username"] == f_username ):
-                        if ( i["password"] != f_password ):
-                            print(" incorrect password ")
-                            error_because_of_bad_password = 1
-                            login()
-                        else:
-                            g_username = f_username
-                            g_password = f_password
-                            bad_info_repeat = False
+                session = Session()
+                results = session.query(User).filter_by(username=str(f_username)).all()
+                session.close()
+
+                if (len(results) == 1):
+                    if (f_password != results[0].password):
+                        print("Incorrect password.")
+                        error_because_of_bad_password = 1
+                        continue
+                    else:
+                        g_username = f_username
+                        g_password = f_password
+                        bad_info_repeat = False
                     
                 if (error_because_of_bad_password == 0 and g_username == ""):
                    print("user not found")
-                   login()
+                   continue
             break
             
         elif (selection == 0):
@@ -309,7 +294,7 @@ def login():
         elif (selection == -1):
             continue
     
-    print("Login successful!")
+    print("Login successful! Welcome to Ottotradr,", g_username)
 
     nav_up()
 
