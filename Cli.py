@@ -370,29 +370,6 @@ def login():
 
     nav_up()
 
-def saved_listings():
-    nav_down("saved_listings")
-
-    if (len(g_saved_listings) == 0):
-        print("Looks like you haven't saved any listings! You can do so from the search page.")
-    else:
-        while(1):
-            options = []
-            for l in g_saved_listings:
-                g_l = g_listings[l]
-                options.append(g_l["make"] + " " + g_l["model"])
-            selection = get_input(options)
-            if (selection > 0 and selection <= len(options)):
-                detail(g_saved_listings[selection - 1])
-            elif (selection == 0):
-                break
-            elif (selection == -1):
-                clear_nav()
-                main()
-                return
-    
-    nav_up()
-
 def owned_listings():
     nav_down("owned_listings")
     if (len(g_owned_listings) == 0):
@@ -488,6 +465,7 @@ def display():
         sys.stdout.write("\rSearching (this may take some time)")
 
         options = []
+        option_ids = []
         session = Session(engine, future=True)
         statement = build_search(page)
         result = session.execute(statement).all()
@@ -497,12 +475,14 @@ def display():
         sys.stdout.flush()
 
         for car, listing in result:
+            option_ids.append(car.listingId)
             options.append(car.franchiseMake + " " + car.modelName + " [$" + str(listing.price) + "]")
         options.extend(["Previous Page", "Next Page"])
 
         selection = get_input(options)
         if (selection > 0 and selection <= len(options) - 2):
-            detail(selection - 1)
+            detail(option_ids[selection - 1])
+            continue
         elif (selection == len(options) - 1):
             if (page > 1):
                 page -= 1
@@ -521,27 +501,28 @@ def display():
 
 def detail(l_id):
     nav_down("listing_detail")
-    l = g_listings[l_id]
+    
+    session = Session(engine, future=True)
+    statement = db.select(Car, Listing).join(Listing).where(Car.listingId == l_id)
+    result = session.execute(statement).first()
+
     print("")
-    print("Make: " + str(l["make"]))
-    print("Model: " + str(l["model"]))
-    print("Year: " + str(l["year"]))
-    print("Price: " + str(l["price"]))
-    print("New: " + str(l["new"]))
-    print("VIN: " + str(l["vin"]))
+    print("Make: " + result.Car.franchiseMake)
+    print("Model: " + result.Car.modelName)
+    print("Year: " + str(result.Car.year))
+    print("Price: " + str(result.Listing.price))
+    print("New: " + result.Car.isNew)
+    print("VIN: " + result.Car.vin)
     options = []
 
     while (1):
-        owned = l_id in g_owned_listings
-        saved = l_id in g_saved_listings
+        owned = False
+        saved = False
 
         if (owned):
             options = ["Edit Listing", "Remove Listing"]
         else:
-            if (saved):
-                options = ["Unsave Listing", "Purchase Vehicle"]
-            else:
-                options = ["Save Listing", "Purchase Vehicle"]
+            options = ["Purchase Vehicle"]
         selection = get_input(options)
         if (owned):
             if (selection == 1):
@@ -559,15 +540,15 @@ def detail(l_id):
                 return
         else:
             if (selection == 1):
-                if (saved):
-                    g_saved_listings.remove(l_id)
-                    print("Removed from saved listings.")
-                else:
-                    g_saved_listings.append(l_id)
-                    print("Listing saved; view it from the main page.")
-            elif (selection == 2):
-                vehicle = g_listings[l_id]
-                g_listings.remove(vehicle)
+
+                # delete Car
+                session = Session(engine, future=True)
+                statement = db.delete(Car).where(Car.listingId == l_id)
+                session.execute(statement)
+                # delete Listing
+                session = Session(engine, future=True)
+                statement = db.delete(Listing).where(Listing.listingId == l_id)
+                session.execute(statement)
                 print("Vehicle purchased! Thank you for your patronage.")
                 nav_up()
                 return
@@ -634,19 +615,22 @@ def removefilters():
     nav_down("remove_filters")
     print("Select a filter to remove it")
     while (1):
-        active_filters = filter(active_filter, g_filters);
-        for i, f in enumerate(active_filters):
-            print(str(i + 1) + ". " + f["name"] + " " + f["relationship"] + " " + f["value"])
+        active_filters = filter(active_filter, g_filters)
+        options = []
+        option_names = []
+        for f in active_filters:
+            option_names.append(f["name"])
+            options.append(f["name"] + " " + f["relationship"] + " " + f["value"])
 
-        if (len(active_filters) == 0):
+        if len(options) == 0:
             print("No active filters; returning to search.")
             nav_up()
             return
 
-        selection = parse(input("Select an option: "))
-        if (selection > 0 and selection <= len(active_filters)):
+        selection = get_input(options)
+        if selection > 0 and selection <= len(options):
             for f in g_filters:
-                if (f["name"] == active_filters[selection - 1]["name"]):
+                if (f["name"] == option_names[selection - 1]["name"]):
                     f["active"] = 0
                     break
         elif (selection == 0):
