@@ -69,6 +69,7 @@ create table Listing (
     mainPictureURL varchar(400),
     majorOptions text,
     price decimal(9, 2),
+    activeListing varchar(5) default 'True' check(activeListing in ('False', 'True')),
     dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
     primary key (listingId)
 );
@@ -147,6 +148,8 @@ set listingId = @col39,
     mainPictureURL = @col41,
     majorOptions = @col42,
     price = @col49;
+update Listing
+set activeListing = 'False';
 -- Address1
 select 'Address1' as '';
 create table Address1 (
