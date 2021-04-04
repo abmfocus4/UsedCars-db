@@ -1,7 +1,8 @@
 import re
+import sys
 import json
 import sqlalchemy as db
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, relationship
 from sqlalchemy.ext.declarative import declarative_base
 # this script also requires pymysql & cryptography to be installed with the below command
 # `pip3 install pymysql cryptography`
@@ -22,6 +23,59 @@ class User(Base):
         return "<User(email='%s', username='%s', firstName='%s', lastName='%s', pass='%s', userType='%s')>" % (
                              self.email, self.username, self.firstName, self.lastName, self.password, self.userType)
 
+class Car(Base):
+    __tablename__ = 'Car'
+
+    vin = db.Column('VIN', db.String(17), primary_key=True, nullable=False)
+    bodyType = db.Column('bodyType', db.String(40), nullable=True)
+    height = db.Column('height', db.Numeric(4,1), nullable=True)
+    year = db.Column('year', db.Integer, nullable=True)
+    modelName = db.Column('modelName', db.String(40), nullable=True)
+    franchiseMake = db.Column('franchiseMake', db.String(40), nullable=True)
+    isFleet = db.Column('isFleet', db.String(5), nullable=True)
+    isCab = db.Column('isCab', db.String(5), nullable=True)
+    isNew = db.Column('isNew', db.String(5), nullable=True)
+    listingId = db.Column('listingId', db.Integer, db.ForeignKey("Listing.listingId"), nullable=False)
+
+    def __repr__(self):
+        return "<Car(VIN='%s', bodyType='%s', height='%f', modelName='%s', franchiseMake='%s', isFleet='%s', isCab='%s', isNew='%s', listingId='%d)>" % (
+                             self.vin, self.bodyType, self.height, self.modelName, self.franchiseMake, self.isFleet, self.isCab, self.isNew, self.listingId)
+
+class Listing(Base):
+    __tablename__ = 'Listing'
+
+    listingId = db.Column('listingId', db.Integer, primary_key=True, nullable=False)
+    listingDate = db.Column('listingDate', db.Date, nullable=False)
+    daysOnMarket = db.Column('daysOnMarket', db.Integer, nullable=True)
+    description = db.Column('description', db.String(1000), nullable=True)
+    mainPictureURL = db.Column('mainPictureURL', db.String(400), nullable=True)
+    majorOptions = db.Column('majorOptions', db.String(1000), nullable=True)
+    price = db.Column('price', db.Numeric(9,2), nullable=True)
+    dealerEmail = db.Column('dealerEmail', db.String(125), nullable=True)
+
+    def __repr__(self):
+        listingId = self.listingId
+        listingDate = self.listingDate
+        daysOnMarket = self.daysOnMarket
+        description = self.description
+        mainPictureURL = self.mainPictureURL
+        price = self.price
+        dealerEmail = self.dealerEmail
+
+        if self.daysOnMarket is None:
+            daysOnMarket = -1
+        if self.description is None:
+            description = "[NULL]"
+        if self.mainPictureURL is None:
+            mainPictureURL = "[NULL]"
+        if self.price is None:
+            price = -1.0
+        if self.dealerEmail is None:
+            dealerEmail = "[NULL]"
+
+        return "<Listing(listingId='%d', listingDate='%s', daysOnMarket='%d', description='%s', mainPictureURL='%s', price='%f', dealerEmail='%s')>" % (
+                             listingId, listingDate, daysOnMarket, description, mainPictureURL, price, dealerEmail)
+
 # specify database configurations
 config = {
     'host': 'localhost',
@@ -32,36 +86,6 @@ config = {
 }
 
 g_loc = []
-
-g_listings = [
-    {
-        "l_id": 0,
-        "make": "Chevrolet",
-        "model": "Impala Sport Coupe",
-        "year": 1975,
-        "price": 15400,
-        "new": False,
-        "vin": "4Y1SL65848Z411439"
-    },
-    {
-        "l_id": 1,
-        "make": "Ford",
-        "model": "F150",
-        "year": 2004,
-        "price": 7500,
-        "new": False,
-        "vin": "4Y1SL41828Z411927"
-    },
-    {
-        "l_id": 2,
-        "make": "Ford",
-        "model": "Bronco Classic",
-        "year": 1969,
-        "price": 38000,
-        "new": False,
-        "vin": "4Y1VC72847Z033278"
-    }
-]
 g_owned_listings = []
 g_saved_listings = []
 g_filters = [
@@ -127,7 +151,55 @@ connection_str = f'mysql+pymysql://{db_user}:{db_pwd}@{db_host}:{db_port}/{db_na
 # connect to database
 engine = db.create_engine(connection_str)
 connection = engine.connect()
-Session = sessionmaker(bind=engine)
+
+def build_search(page):
+    statement = db.select(Car, Listing).join(Listing)
+
+    for f in filter(active_filter, g_filters):
+        column = Car
+        if f['name'] == 'Year':
+            column = Car.year
+        elif f['name'] == 'Make':
+            column = Car.franchiseMake
+        elif f['name'] == 'Model':
+            column = Car.modelName
+        elif f['name'] == 'Price':
+            column = Car.franchiseMake
+        elif f['name'] == 'New':
+            column = Car.franchiseMake
+        elif f['name'] == 'Dealer ZIP':
+            column = Car.franchiseMake
+        else:
+            column = Listing.price
+        
+        if f['relationship'] == ">":
+            statement = statement.where(column > parse(f['value']))
+        elif f['relationship'] == ">=":
+            statement = statement.where(column >= parse(f['value']))
+        elif f['relationship'] == "=":
+            val = 0
+            if f['f_type'] == "equality":
+                val = f['value']
+            elif f['f_type'] == "range":
+                val = parse(f['value'])
+            elif f['f_type'] == "boolean":
+                val = parse(f['value']) == 1
+            statement = statement.where(column == val)
+        elif f['relationship'] == "!=":
+            val = 0
+            if f['f_type'] == "equality":
+                val = f['value']
+            elif f['f_type'] == "range":
+                val = parse(f['value'])
+            elif f['f_type'] == "boolean":
+                val = parse(f['value']) == 1
+            statement = statement.where(column != val)
+        elif f['relationship'] == "<=":
+            statement = statement.where(column <= parse(f['value']))
+        elif f['relationship'] == "<":
+            statement = statement.where(column < parse(f['value']))
+    
+    return statement.limit(10).offset((page - 1) * 10)
 
 def parse(input):
     try:
@@ -198,7 +270,7 @@ def main():
 def startup():
     print("Welcome to Ottotradr: a used car sales platform that's definitely not affiliated with Auto Trader.")
     print("Navigate the application using the prompts, using 'q' to quit & 'b' to navigate back.")
-    login()
+    # login()
     main()
 
 #get the user to sign up or log into an account
@@ -252,7 +324,7 @@ def login():
 
             new_user = User(email=g_email, username=g_username, firstName=g_firstname, lastName=g_lastname, password=g_password, userType=userType)
 
-            session = Session()
+            session = Session(engine)
             session.add(new_user)
             session.commit()
 
@@ -270,7 +342,7 @@ def login():
 
                 error_because_of_bad_password = 0
 
-                session = Session()
+                session = Session(engine)
                 results = session.query(User).filter_by(username=str(f_username)).all()
                 session.close()
 
@@ -408,16 +480,37 @@ def search():
 
 def display():
     nav_down("search_results")
+
+    page = 1
+
     while (1):
         print("")
-        print("Select a listing to view it in detail, save it, or buy it.")
+        sys.stdout.write("\rSearching (this may take some time)")
 
         options = []
-        for listing in g_listings:
-            options.append(listing["make"] + " " + listing["model"])
+        session = Session(engine, future=True)
+        statement = build_search(page)
+        result = session.execute(statement).all()
+        session.close()
+
+        sys.stdout.write("\rSelect a listing to view it in detail, save it, or buy it. [Page {page:d}]\n".format(page=page))
+        sys.stdout.flush()
+
+        for car, listing in result:
+            options.append(car.franchiseMake + " " + car.modelName + " [$" + str(listing.price) + "]")
+        options.extend(["Previous Page", "Next Page"])
+
         selection = get_input(options)
-        if (selection > 0 and selection <= len(options)):
+        if (selection > 0 and selection <= len(options) - 2):
             detail(selection - 1)
+        elif (selection == len(options) - 1):
+            if (page > 1):
+                page -= 1
+            continue
+        elif (selection == len(options)):
+            if (len(result) == 10):
+                page += 1
+            continue
         elif (selection == 0):
             nav_up()
             return
@@ -573,7 +666,7 @@ def editfilter(index):
     if (f["f_type"] == "equality"):
         prompt1 += "'=', '!='"
     elif (f["f_type"] == "range"):
-        prompt1 += "'>', '>=', '='. '!=', '<', '<='"
+        prompt1 += "'>', '>=', '=', '!=', '<', '<='"
     else:
         prompt1 += "'1', '0'"
     
