@@ -1,8 +1,80 @@
 import re
+import sys
 import json
 import sqlalchemy as db
+from sqlalchemy.orm import Session, relationship
+from sqlalchemy.ext.declarative import declarative_base
 # this script also requires pymysql & cryptography to be installed with the below command
-# pip3 install pymysql cryptography
+# `pip3 install pymysql cryptography`
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = 'User'
+
+    email = db.Column('email', db.String(125), primary_key=True, nullable=False)
+    username = db.Column('username', db.String(125), nullable=True)
+    firstName = db.Column('firstName', db.String(125), nullable=True)
+    lastName = db.Column('lastName', db.String(125), nullable=True)
+    password = db.Column('pass', db.String(40), nullable=False)
+    userType = db.Column('userType', db.String(8), nullable=False)
+
+    def __repr__(self):
+        return "<User(email='%s', username='%s', firstName='%s', lastName='%s', pass='%s', userType='%s')>" % (
+                             self.email, self.username, self.firstName, self.lastName, self.password, self.userType)
+
+class Car(Base):
+    __tablename__ = 'Car'
+
+    vin = db.Column('VIN', db.String(17), primary_key=True, nullable=False)
+    bodyType = db.Column('bodyType', db.String(40), nullable=True)
+    height = db.Column('height', db.Numeric(4,1), nullable=True)
+    year = db.Column('year', db.Integer, nullable=True)
+    modelName = db.Column('modelName', db.String(40), nullable=True)
+    franchiseMake = db.Column('franchiseMake', db.String(40), nullable=True)
+    isFleet = db.Column('isFleet', db.String(5), nullable=True)
+    isCab = db.Column('isCab', db.String(5), nullable=True)
+    isNew = db.Column('isNew', db.String(5), nullable=True)
+    listingId = db.Column('listingId', db.Integer, db.ForeignKey("Listing.listingId"), nullable=False)
+
+    def __repr__(self):
+        return "<Car(VIN='%s', bodyType='%s', height='%f', modelName='%s', franchiseMake='%s', isFleet='%s', isCab='%s', isNew='%s', listingId='%d)>" % (
+                             self.vin, self.bodyType, self.height, self.modelName, self.franchiseMake, self.isFleet, self.isCab, self.isNew, self.listingId)
+
+class Listing(Base):
+    __tablename__ = 'Listing'
+
+    listingId = db.Column('listingId', db.Integer, primary_key=True, nullable=False)
+    listingDate = db.Column('listingDate', db.Date, nullable=False)
+    daysOnMarket = db.Column('daysOnMarket', db.Integer, nullable=True)
+    description = db.Column('description', db.String(1000), nullable=True)
+    mainPictureURL = db.Column('mainPictureURL', db.String(400), nullable=True)
+    majorOptions = db.Column('majorOptions', db.String(1000), nullable=True)
+    price = db.Column('price', db.Numeric(9,2), nullable=True)
+    dealerEmail = db.Column('dealerEmail', db.String(125), nullable=True)
+
+    def __repr__(self):
+        listingId = self.listingId
+        listingDate = self.listingDate
+        daysOnMarket = self.daysOnMarket
+        description = self.description
+        mainPictureURL = self.mainPictureURL
+        price = self.price
+        dealerEmail = self.dealerEmail
+
+        if self.daysOnMarket is None:
+            daysOnMarket = -1
+        if self.description is None:
+            description = "[NULL]"
+        if self.mainPictureURL is None:
+            mainPictureURL = "[NULL]"
+        if self.price is None:
+            price = -1.0
+        if self.dealerEmail is None:
+            dealerEmail = "[NULL]"
+
+        return "<Listing(listingId='%d', listingDate='%s', daysOnMarket='%d', description='%s', mainPictureURL='%s', price='%f', dealerEmail='%s')>" % (
+                             listingId, listingDate, daysOnMarket, description, mainPictureURL, price, dealerEmail)
 
 # specify database configurations
 config = {
@@ -14,36 +86,6 @@ config = {
 }
 
 g_loc = []
-
-g_listings = [
-    {
-        "l_id": 0,
-        "make": "Chevrolet",
-        "model": "Impala Sport Coupe",
-        "year": 1975,
-        "price": 15400,
-        "new": False,
-        "vin": "4Y1SL65848Z411439"
-    },
-    {
-        "l_id": 1,
-        "make": "Ford",
-        "model": "F150",
-        "year": 2004,
-        "price": 7500,
-        "new": False,
-        "vin": "4Y1SL41828Z411927"
-    },
-    {
-        "l_id": 2,
-        "make": "Ford",
-        "model": "Bronco Classic",
-        "year": 1969,
-        "price": 38000,
-        "new": False,
-        "vin": "4Y1VC72847Z033278"
-    }
-]
 g_owned_listings = []
 g_saved_listings = []
 g_filters = [
@@ -99,7 +141,6 @@ g_filters = [
 ]
 
 # set up db connection
-
 db_user = config.get('user')
 db_pwd = config.get('password')
 db_host = config.get('host')
@@ -110,6 +151,55 @@ connection_str = f'mysql+pymysql://{db_user}:{db_pwd}@{db_host}:{db_port}/{db_na
 # connect to database
 engine = db.create_engine(connection_str)
 connection = engine.connect()
+
+def build_search(page):
+    statement = db.select(Car, Listing).join(Listing)
+
+    for f in filter(active_filter, g_filters):
+        column = Car
+        if f['name'] == 'Year':
+            column = Car.year
+        elif f['name'] == 'Make':
+            column = Car.franchiseMake
+        elif f['name'] == 'Model':
+            column = Car.modelName
+        elif f['name'] == 'Price':
+            column = Car.franchiseMake
+        elif f['name'] == 'New':
+            column = Car.franchiseMake
+        elif f['name'] == 'Dealer ZIP':
+            column = Car.franchiseMake
+        else:
+            column = Listing.price
+        
+        if f['relationship'] == ">":
+            statement = statement.where(column > parse(f['value']))
+        elif f['relationship'] == ">=":
+            statement = statement.where(column >= parse(f['value']))
+        elif f['relationship'] == "=":
+            val = 0
+            if f['f_type'] == "equality":
+                val = f['value']
+            elif f['f_type'] == "range":
+                val = parse(f['value'])
+            elif f['f_type'] == "boolean":
+                val = parse(f['value']) == 1
+            statement = statement.where(column == val)
+        elif f['relationship'] == "!=":
+            val = 0
+            if f['f_type'] == "equality":
+                val = f['value']
+            elif f['f_type'] == "range":
+                val = parse(f['value'])
+            elif f['f_type'] == "boolean":
+                val = parse(f['value']) == 1
+            statement = statement.where(column != val)
+        elif f['relationship'] == "<=":
+            statement = statement.where(column <= parse(f['value']))
+        elif f['relationship'] == "<":
+            statement = statement.where(column < parse(f['value']))
+    
+    return statement.limit(10).offset((page - 1) * 10)
 
 def parse(input):
     try:
@@ -180,45 +270,11 @@ def main():
 def startup():
     print("Welcome to Ottotradr: a used car sales platform that's definitely not affiliated with Auto Trader.")
     print("Navigate the application using the prompts, using 'q' to quit & 'b' to navigate back.")
-    login()
+    # login()
     main()
 
 #get the user to sign up or log into an account
 def login():
-
-    #add ending ] at login()
-    g_user = """ [
-        {
-        "emailAddress":"bmalapat@uwaterloo.ca",
-        "username":"megAdmin",
-        "firstName":"Mag",
-        "lastName":"Alapati",
-        "password":"Admin1$a",
-        "userType":"Admin",
-        "phoneNumber": "no",
-        "postalcode":"no"
-    },
-    {
-        "emailAddress":"s2ishraq@uwaterloo.ca",
-        "username":"shwapAdmin",
-        "firstName":"Shwapneel",
-        "lastName":"Ishraq",
-        "password":"Admin1$a",
-        "userType":"Admin",
-        "phoneNumber": "no",
-        "postalcode":"no"
-    },
-    {
-        "emailAddress":"connor.peter.barker@uwaterloo.ca",
-        "username":"connorAdmin",
-        "firstName":"Connor",
-        "lastName":"Barker",
-        "password":"Admin1!a",
-        "userType":"Admin",
-        "phoneNumber": "no",
-        "postalcode":"no"
-    }"""
-
     options = ["Sign Up", "Log In"]
     g_username = "user"
     pw1 = "1"
@@ -231,7 +287,7 @@ def login():
         if (selection == 1):
             userType = "select"
             while ( (userType != 'Customer') and (userType != 'Dealer') ):
-                 userType = input("Are you a 'Customer' or a 'Dealer' (Spell Customer or Dealer exactly the same as this)?: ")
+                userType = input("Are you a 'Customer' or a 'Dealer' (Spell Customer or Dealer exactly the same as this)?: ")
 
             g_username = input("enter your username: ")
             g_firstname = input("enter your firstname: ")
@@ -266,9 +322,11 @@ def login():
             
             user_info_json = ',{"username":\"' + g_username + "\",\"fistname\":\"" + g_firstname + "\",\"lastname\":\"" + g_lastname +"\",\"password\":\"" + g_password + "\",\"email\":\"" + g_email + "\",\"phone\":\"" + g_phone + "\",\"postal code\":\"" + g_postal + '\"}'
 
-            print(user_info_json)
+            new_user = User(email=g_email, username=g_username, firstName=g_firstname, lastName=g_lastname, password=g_password, userType=userType)
 
-            g_user += user_info_json 
+            session = Session(engine)
+            session.add(new_user)
+            session.commit()
 
             break
         elif (selection == 2):
@@ -282,26 +340,25 @@ def login():
                 f_username = input("username: ")
                 f_password = input("password: ")
 
-                all_users = g_user + "]"
-                all_users_json_formatted = json.loads(all_users)
-
                 error_because_of_bad_password = 0
 
-                for i in all_users_json_formatted:
-                
-                    if ( i["username"] == f_username ):
-                        if ( i["password"] != f_password ):
-                            print(" incorrect password ")
-                            error_because_of_bad_password = 1
-                            login()
-                        else:
-                            g_username = f_username
-                            g_password = f_password
-                            bad_info_repeat = False
+                session = Session(engine)
+                results = session.query(User).filter_by(username=str(f_username)).all()
+                session.close()
+
+                if (len(results) == 1):
+                    if (f_password != results[0].password):
+                        print("Incorrect password.")
+                        error_because_of_bad_password = 1
+                        continue
+                    else:
+                        g_username = f_username
+                        g_password = f_password
+                        bad_info_repeat = False
                     
                 if (error_because_of_bad_password == 0 and g_username == ""):
                    print("user not found")
-                   login()
+                   continue
             break
             
         elif (selection == 0):
@@ -309,31 +366,8 @@ def login():
         elif (selection == -1):
             continue
     
-    print("Login successful!")
+    print("Login successful! Welcome to Ottotradr,", g_username)
 
-    nav_up()
-
-def saved_listings():
-    nav_down("saved_listings")
-
-    if (len(g_saved_listings) == 0):
-        print("Looks like you haven't saved any listings! You can do so from the search page.")
-    else:
-        while(1):
-            options = []
-            for l in g_saved_listings:
-                g_l = g_listings[l]
-                options.append(g_l["make"] + " " + g_l["model"])
-            selection = get_input(options)
-            if (selection > 0 and selection <= len(options)):
-                detail(g_saved_listings[selection - 1])
-            elif (selection == 0):
-                break
-            elif (selection == -1):
-                clear_nav()
-                main()
-                return
-    
     nav_up()
 
 def owned_listings():
@@ -423,16 +457,40 @@ def search():
 
 def display():
     nav_down("search_results")
+
+    page = 1
+
     while (1):
         print("")
-        print("Select a listing to view it in detail, save it, or buy it.")
+        sys.stdout.write("\rSearching (this may take some time)")
 
         options = []
-        for listing in g_listings:
-            options.append(listing["make"] + " " + listing["model"])
+        option_ids = []
+        session = Session(engine, future=True)
+        statement = build_search(page)
+        result = session.execute(statement).all()
+        session.close()
+
+        sys.stdout.write("\rSelect a listing to view it in detail, save it, or buy it. [Page {page:d}]\n".format(page=page))
+        sys.stdout.flush()
+
+        for car, listing in result:
+            option_ids.append(car.listingId)
+            options.append(car.franchiseMake + " " + car.modelName + " [$" + str(listing.price) + "]")
+        options.extend(["Previous Page", "Next Page"])
+
         selection = get_input(options)
-        if (selection > 0 and selection <= len(options)):
-            detail(selection - 1)
+        if (selection > 0 and selection <= len(options) - 2):
+            detail(option_ids[selection - 1])
+            continue
+        elif (selection == len(options) - 1):
+            if (page > 1):
+                page -= 1
+            continue
+        elif (selection == len(options)):
+            if (len(result) == 10):
+                page += 1
+            continue
         elif (selection == 0):
             nav_up()
             return
@@ -443,27 +501,28 @@ def display():
 
 def detail(l_id):
     nav_down("listing_detail")
-    l = g_listings[l_id]
+    
+    session = Session(engine, future=True)
+    statement = db.select(Car, Listing).join(Listing).where(Car.listingId == l_id)
+    result = session.execute(statement).first()
+
     print("")
-    print("Make: " + str(l["make"]))
-    print("Model: " + str(l["model"]))
-    print("Year: " + str(l["year"]))
-    print("Price: " + str(l["price"]))
-    print("New: " + str(l["new"]))
-    print("VIN: " + str(l["vin"]))
+    print("Make: " + result.Car.franchiseMake)
+    print("Model: " + result.Car.modelName)
+    print("Year: " + str(result.Car.year))
+    print("Price: " + str(result.Listing.price))
+    print("New: " + result.Car.isNew)
+    print("VIN: " + result.Car.vin)
     options = []
 
     while (1):
-        owned = l_id in g_owned_listings
-        saved = l_id in g_saved_listings
+        owned = False
+        saved = False
 
         if (owned):
             options = ["Edit Listing", "Remove Listing"]
         else:
-            if (saved):
-                options = ["Unsave Listing", "Purchase Vehicle"]
-            else:
-                options = ["Save Listing", "Purchase Vehicle"]
+            options = ["Purchase Vehicle"]
         selection = get_input(options)
         if (owned):
             if (selection == 1):
@@ -481,15 +540,15 @@ def detail(l_id):
                 return
         else:
             if (selection == 1):
-                if (saved):
-                    g_saved_listings.remove(l_id)
-                    print("Removed from saved listings.")
-                else:
-                    g_saved_listings.append(l_id)
-                    print("Listing saved; view it from the main page.")
-            elif (selection == 2):
-                vehicle = g_listings[l_id]
-                g_listings.remove(vehicle)
+
+                # delete Car
+                session = Session(engine, future=True)
+                statement = db.delete(Car).where(Car.listingId == l_id)
+                session.execute(statement)
+                # delete Listing
+                session = Session(engine, future=True)
+                statement = db.delete(Listing).where(Listing.listingId == l_id)
+                session.execute(statement)
                 print("Vehicle purchased! Thank you for your patronage.")
                 nav_up()
                 return
@@ -556,19 +615,22 @@ def removefilters():
     nav_down("remove_filters")
     print("Select a filter to remove it")
     while (1):
-        active_filters = filter(active_filter, g_filters);
-        for i, f in enumerate(active_filters):
-            print(str(i + 1) + ". " + f["name"] + " " + f["relationship"] + " " + f["value"])
+        active_filters = filter(active_filter, g_filters)
+        options = []
+        option_names = []
+        for f in active_filters:
+            option_names.append(f["name"])
+            options.append(f["name"] + " " + f["relationship"] + " " + f["value"])
 
-        if (len(active_filters) == 0):
+        if len(options) == 0:
             print("No active filters; returning to search.")
             nav_up()
             return
 
-        selection = parse(input("Select an option: "))
-        if (selection > 0 and selection <= len(active_filters)):
+        selection = get_input(options)
+        if selection > 0 and selection <= len(options):
             for f in g_filters:
-                if (f["name"] == active_filters[selection - 1]["name"]):
+                if (f["name"] == option_names[selection - 1]["name"]):
                     f["active"] = 0
                     break
         elif (selection == 0):
@@ -588,7 +650,7 @@ def editfilter(index):
     if (f["f_type"] == "equality"):
         prompt1 += "'=', '!='"
     elif (f["f_type"] == "range"):
-        prompt1 += "'>', '>=', '='. '!=', '<', '<='"
+        prompt1 += "'>', '>=', '=', '!=', '<', '<='"
     else:
         prompt1 += "'1', '0'"
     
