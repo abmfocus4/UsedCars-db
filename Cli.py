@@ -1,6 +1,7 @@
 import re
 import sys
 import json
+import datetime
 import sqlalchemy as db
 from sqlalchemy.orm import Session, relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -13,15 +14,14 @@ class User(Base):
     __tablename__ = 'User'
 
     email = db.Column('email', db.String(125), primary_key=True, nullable=False)
-    username = db.Column('username', db.String(125), nullable=True)
     firstName = db.Column('firstName', db.String(125), nullable=True)
     lastName = db.Column('lastName', db.String(125), nullable=True)
     password = db.Column('pass', db.String(40), nullable=False)
     userType = db.Column('userType', db.String(8), nullable=False)
 
     def __repr__(self):
-        return "<User(email='%s', username='%s', firstName='%s', lastName='%s', pass='%s', userType='%s')>" % (
-                             self.email, self.username, self.firstName, self.lastName, self.password, self.userType)
+        return "<User(email='%s', firstName='%s', lastName='%s', pass='%s', userType='%s')>" % (
+                             self.email, self.firstName, self.lastName, self.password, self.userType)
 
 class Car(Base):
     __tablename__ = 'Car'
@@ -76,6 +76,60 @@ class Listing(Base):
         return "<Listing(listingId='%d', listingDate='%s', daysOnMarket='%d', description='%s', mainPictureURL='%s', price='%f', dealerEmail='%s')>" % (
                              listingId, listingDate, daysOnMarket, description, mainPictureURL, price, dealerEmail)
 
+class Engine(Base):
+    __tablename__ = 'Engine'
+
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    engineCylinders = db.Column('engineCylinders', db.String(40), nullable=True)
+    engineDisplacement = db.Column('engineDisplacement', db.Numeric(8,3), nullable=True)
+    engineType = db.Column('engineType', db.String(40), nullable=True)
+    horsepower = db.Column('horsepower', db.Numeric(5,2), nullable=True)
+    transmission = db.Column('transmission', db.String(40), nullable=True)
+    transmissionDisplay = db.Column('transmissionDisplay', db.String(125), nullable=True)
+    power = db.Column('power', db.String(125), nullable=True)
+
+class FuelSpecs(Base):
+    __tablename__ = 'FuelSpecs'
+
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    fuelTankVolume = db.Column('fuelTankVolume', db.Numeric(4,1), nullable=True)
+    fuelType = db.Column('fuelType', db.String(40), nullable=True)
+    cityFuelEconomy = db.Column('cityFuelEconomy', db.Numeric(5,2), nullable=True)
+    highwayFuelEconomy = db.Column('highwayFuelEconomy', db.Numeric(5,2), nullable=True)
+
+class TrimPackage(Base):
+    __tablename__ = 'TrimPackage'
+
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    trimId = db.Column('trimId', db.Numeric(5,0), nullable=True)
+    trimName = db.Column('trimName', db.String(125), nullable=True)
+
+class Interior(Base):
+    __tablename__ = 'Interior'
+
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    backLegroom = db.Column('backLegroom', db.Numeric(4,1), nullable=True)
+    frontLegroom = db.Column('frontLegroom', db.Numeric(4,1), nullable=True)
+    interiorColor = db.Column('interiorColor', db.String(125), nullable=True)
+    maximumSeating = db.Column('maximumSeating', db.Integer, nullable=True)
+
+class WheelSystem(Base):
+    __tablename__ = 'WheelSystem'
+
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    wheelSystem = db.Column('wheelSystem', db.String(3), nullable=True)
+    wheelSystemDisplay = db.Column('wheelSystemDisplay', db.String(40), nullable=True)
+    wheelbase = db.Column('wheelbase', db.Numeric(4,1), nullable=True)
+
+class DepreciationFactors(Base):
+    __tablename__ = 'DepreciationFactors'
+
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    frameDamaged = db.Column('frameDamaged', db.String(5), nullable=True)
+    hasAccidents = db.Column('hasAccidents', db.String(5), nullable=True)
+    salvage = db.Column('salvage', db.String(5), nullable=True)
+    savingsAmount = db.Column('savingsAmount', db.Numeric(7,2), nullable=True)
+
 # specify database configurations
 config = {
     'host': 'localhost',
@@ -85,9 +139,8 @@ config = {
     'database': 'Cars'
 }
 
+g_user = User()
 g_loc = []
-g_owned_listings = []
-g_saved_listings = []
 g_filters = [
     {
         "name": "Year",
@@ -152,6 +205,58 @@ connection_str = f'mysql+pymysql://{db_user}:{db_pwd}@{db_host}:{db_port}/{db_na
 engine = db.create_engine(connection_str)
 connection = engine.connect()
 
+def format_for_db(user_input, input_type, v1=0, v2=0):
+    if user_input is None or len(str(user_input)) == 0:
+            return None
+
+    if input_type == "string":
+        return user_input[:v1] if len(user_input) > v1 else user_input
+    elif input_type == "boolean":
+        return "True" if user_input else "False"
+    elif input_type == "float":
+        float_input = 0.0
+        max_input = 0.0
+        i = 0
+
+        try:
+            float_input = float(user_input)
+        except ValueError:
+            return None
+
+        remainder = float_input % 1
+        while i < v1:
+            max_input = max_input * 10 + 9
+            i += 1
+        
+        if float_input + 1 > max_input:
+            while float_input + 1 > max_input:
+                float_input -= float_input % 10
+                float_input = float_input / 10
+            float_input += remainder
+
+        return round(float_input, v2)
+    elif input_type == "integer":
+        try:
+            int(user_input)
+            return int(user_input)
+        except ValueError:
+            return None
+
+def list_car(fuelSpecs=None, wheelSystem=None, trimPackage=None, depreciationFactors=None, interior=None):
+    session = Session(engine)
+    if fuelSpecs is not None:
+        session.add(fuelSpecs)
+    if wheelSystem is not None:
+        session.add(wheelSystem)
+    if trimPackage is not None:
+        session.add(trimPackage)
+    if depreciationFactors is not None:
+        session.add(depreciationFactors)
+    if interior is not None:
+        session.add(interior)
+    session.commit()
+    return
+
 def build_search(page):
     statement = db.select(Car, Listing).join(Listing)
 
@@ -201,13 +306,23 @@ def build_search(page):
     
     return statement.limit(10).offset((page - 1) * 10)
 
-def parse(input):
+def parse(string):
     try:
-        #check if input is a number for menu
-        int(input)
-        return int(input)
+        #check if string is a number for menu
+        int(string)
+        return int(string)
     except ValueError:
-        return 0 if input == "b" else -1
+        return 0 if string == "b" else -1
+
+def ynput(string):
+    result = 0
+    while True:
+        result = input(string).lower()
+        if len(result) == 0 or result == "y" or result == "n":
+            break
+        else:
+            print("Please enter only y or n.")
+    return result == "y"
 
 def list_options(options):
     print("")
@@ -234,7 +349,6 @@ def nav_up():
     g_loc.pop()
     get_loc()
 
-
 def get_loc():
     location = ""
     for level in g_loc:
@@ -247,7 +361,12 @@ def active_filter(f):
 
 #navigate throught the app
 def main():
-    options = ["Search Listings", "Create Listing", "View Your Listings", "View Saved Listings"]
+
+    options = ["Search Listings"]
+
+    if (g_user.userType != "Customer"):
+        options.extend(["Create Listing", "View Your Listings"])
+
     nav_down("main")
     while (1):
         selection = get_input(options)
@@ -257,8 +376,6 @@ def main():
             new_listing()
         elif (selection == 3):
             owned_listings()
-        elif (selection == 4):
-            saved_listings()
         elif (selection == 0):
             continue
         else:
@@ -270,13 +387,12 @@ def main():
 def startup():
     print("Welcome to Ottotradr: a used car sales platform that's definitely not affiliated with Auto Trader.")
     print("Navigate the application using the prompts, using 'q' to quit & 'b' to navigate back.")
-    # login()
+    login()
     main()
 
 #get the user to sign up or log into an account
 def login():
     options = ["Sign Up", "Log In"]
-    g_username = "user"
     pw1 = "1"
     pw2 = "2"
     email = "example@example.com"
@@ -289,7 +405,6 @@ def login():
             while ( (userType != 'Customer') and (userType != 'Dealer') ):
                 userType = input("Are you a 'Customer' or a 'Dealer' (Spell Customer or Dealer exactly the same as this)?: ")
 
-            g_username = input("enter your username: ")
             g_firstname = input("enter your firstname: ")
             g_lastname = input("enter your lastname: ")
             while (pw1 != pw2):
@@ -310,53 +425,47 @@ def login():
 
             is_valid_phone = False
             while ( not is_valid_phone ):
-                g_phone = input("Enter your phone number, if you don't have one then enter no: ")
-                if ( ( g_phone.isnumeric() and len(g_phone)<=15 ) or ( g_phone == "no" ) ):
+                g_phone = input("Enter your phone number (leave blank if n/a): ")
+                if ( ( g_phone.isnumeric() and len(g_phone)<=15 ) or ( len(g_phone) == 0 ) ):
                    is_valid_phone = True
 
             is_valid_postal = False
             while ( not is_valid_postal ):
-                g_postal = input("Enter your postal code, if you don't have one then enter no: ")
+                g_postal = input("Enter your postal code (leave blank if n/a): ")
                 if ( ( len(g_postal)<=32 ) or ( g_postal == "no" ) ):
                    is_valid_postal = True       
-            
-            user_info_json = ',{"username":\"' + g_username + "\",\"fistname\":\"" + g_firstname + "\",\"lastname\":\"" + g_lastname +"\",\"password\":\"" + g_password + "\",\"email\":\"" + g_email + "\",\"phone\":\"" + g_phone + "\",\"postal code\":\"" + g_postal + '\"}'
 
-            new_user = User(email=g_email, username=g_username, firstName=g_firstname, lastName=g_lastname, password=g_password, userType=userType)
+            g_user = User(email=g_email, firstName=g_firstname, lastName=g_lastname, password=g_password, userType=userType)
 
             session = Session(engine)
-            session.add(new_user)
+            session.add(g_user)
             session.commit()
 
             break
         elif (selection == 2):
-
-            g_username = ""
-            g_password = ""
-
             bad_info_repeat = True
 
             while(bad_info_repeat):
-                f_username = input("username: ")
+                f_email = input("email: ")
                 f_password = input("password: ")
 
                 error_because_of_bad_password = 0
 
-                session = Session(engine)
-                results = session.query(User).filter_by(username=str(f_username)).all()
+                session = Session(engine, future=True)
+                statement = db.select(User).where(User.email == str(f_email))
+                results = session.execute(statement).all()
                 session.close()
 
                 if (len(results) == 1):
-                    if (f_password != results[0].password):
+                    if (f_password != results[0].User.password):
                         print("Incorrect password.")
                         error_because_of_bad_password = 1
                         continue
                     else:
-                        g_username = f_username
-                        g_password = f_password
+                        g_user = results[0].User
                         bad_info_repeat = False
                     
-                if (error_because_of_bad_password == 0 and g_username == ""):
+                if (error_because_of_bad_password == 0):
                    print("user not found")
                    continue
             break
@@ -366,7 +475,7 @@ def login():
         elif (selection == -1):
             continue
     
-    print("Login successful! Welcome to Ottotradr,", g_username)
+    print("Login successful! Welcome to Ottotradr,", g_user.firstName)
 
     nav_up()
 
@@ -395,39 +504,190 @@ def owned_listings():
 def new_listing():
     nav_down("new_listing")
     print("")
-    make = input("Enter vehicle make: ")
-    model = input("Enter vehicle model: ")
-    year = input("Enter vehicle year: ")
-    price = input("Enter desired list price: ")
-    new = input("Is this vehicle new (y/n): ")
-
     is_valid_vin = False
-    while ( not is_valid_vin ):
+    vin = 0
+
+    while True:
         vin = input("Enter vehicle VIN number: ")
         if ( vin.isnumeric() and len(vin) >= 11 and len(vin) <= 17 ):
-            is_valid_vin = True
+            break
+    
+    make = input("Enter vehicle make: ")
+    model = input("Enter vehicle model: ")
+    height = input("Enter vehicle height: ")
+    bodyType = input("Enter vehicle body type: ")
+    year = input("Enter vehicle year of make: ")
+    price = input("Enter desired list price: ")
+    isNew = ynput("Is this vehicle new (y/n): ")
+    isCab = ynput("Was this vehicle a cab (y/n): ")
+    trimPackageID = input("Enter vehicle trim package identifier: ")
+
+    listing = None
+    wheelSystem = None
+    carEngine = None
+    interior = None
+    trimPackage = None
+    fuelSpecs = None
+    depreciationFactors = None
+    
+    hasEngine = ynput("Do you know the engine specifications of the vehicle (y/n): ")
+    if hasEngine:
+        print("If you don't know the answer to any field, or it isn't applicable, leave it blank.")
+        displacement = input("Enter engine displacement (ml): ")
+        engineType = input("Enter engine type: ")
+        cylinders = input("Enter number of cylinders: ")
+        horsepower = input("Enter engine horsepower: ")
+        transmission = input("Enter engine transmission: ")
+        carEngine = Engine(
+            vin=format_for_db(vin, "string", 17),
+            engineCylinders=format_for_db(cylinders, "string", 40),
+            engineDisplacement=format_for_db(displacement, "float", 8, 3),
+            engineType=format_for_db(engineType, "string", 40),
+            horsepower=format_for_db(horsepower, "float", 5, 2),
+            transmission=format_for_db(transmission, "string", 40)
+        )
+    print("")
+    
+    hasInterior = ynput("Do you know the interior specifications of the vehicle (y/n): ")
+    if hasInterior:
+        print("If you don't know the answer to any field, or it isn't applicable, leave it blank.")
+        frontLegroom = input("Enter front legroom (cm): ")
+        backLegroom = input("Enter rear legroom (cm): ")
+        maximumSeating = input("Enter maximum seating capacity: ")
+        interiorColor = input("Enter interior color: ")
+        interior = Interior(
+            vin=format_for_db(vin, "string", 17),
+            frontLegroom=format_for_db(frontLegroom, "float", 4, 1),
+            backLegroom=format_for_db(backLegroom, "float", 4, 1),
+            interiorColor=format_for_db(interiorColor, "string", 125),
+            maximumSeating=format_for_db(maximumSeating, "integer")
+        )
+    print("")
+    
+    hasFuel = ynput("Do you know the fuel specifications of the vehicle (y/n): ")
+    if hasFuel:
+        print("If you don't know the answer to any field, or it isn't applicable, leave it blank.")
+        fuelTankVolume = input("Enter fuel tank volume (l): ")
+        fuelType = input("Enter fuel type: ")
+        cityFuelEconomy = input("Enter city fuel economy (kpl): ")
+        highwayFuelEconomy = input("Enter highway fuel economy (kpl): ")
+        fuelSpecs = FuelSpecs(
+            vin=format_for_db(vin, "string", 17),
+            fuelTankVolume=format_for_db(fuelTankVolume, "float", 4, 1),
+            fuelType=format_for_db(fuelType, "string", 40),
+            cityFuelEconomy=format_for_db(cityFuelEconomy, "float", 5, 2),
+            highwayFuelEconomy=format_for_db(highwayFuelEconomy, "float", 5, 2)
+        )
+    print("")
+
+    hasWheelbase = ynput("Do you know the wheelbase specifications of the vehicle (y/n): ")
+    if hasWheelbase:
+        print("If you don't know the answer to any field, or it isn't applicable, leave it blank.")
+        wheelSystemDesc = input("Enter vehicle wheel system (3 letter designation): ")
+        wheelbase = input("Enter vehicle wheelbase width (cm): ")
+        wheelSystem = WheelSystem(
+            vin=format_for_db(vin, "string", 17),
+            wheelSystem=format_for_db(wheelSystemDesc, "string", 3),
+            wheelbase=format_for_db(wheelbase, "float", 4, 1)
+        )
+    print("")
+    
+    if not isNew:
+        frameDamaged = ynput("Is the vehicle's frame damaged (y/n): ")
+        hasAccidents = ynput("Has this vehicle been involved in any accidents (y/n): ")
+        salvage = ynput("Is this vehicle salvage (y/n): ")
+        depreciationFactors = DepreciationFactors(
+            vin=format_for_db(vin, "string", 17),
+            frameDamaged=format_for_db(frameDamaged, "boolean"),
+            hasAccidents=format_for_db(hasAccidents, "boolean"),
+            salvage=format_for_db(salvage, "boolean")
+        )
+        print("")
+
+    if len(trimPackageID) > 0:
+        trimPackage = TrimPackage(
+            vin=format_for_db(vin, "string", 17),
+            trimName=format_for_db(trimPackageID, "string", 125)
+        )
 
     print("You are about to list the following vehicle for sale:")
+    print("VIN: " + vin)
     print("Make: " + make)
     print("Model: " + model)
+    print("Body type: " + bodyType)
     print("Year: " + year)
-    print("Price: " + price)
-    print("New: " + ("True" if new == "y" else "False"))
-    print("VIN: " + vin)
+    print("Price: $" + price)
+    print("New: " + ("True" if isNew else "False"))
+    print("Cab: " + ("True" if isCab else "False"))
+    if trimPackage is not None:
+        print("Trim package: " + str(trimPackage.trimName))
+    if hasEngine:
+        print("Engine displacement: " + str(carEngine.engineDisplacement) + "mL")
+        print("Engine type: " + str(carEngine.engineType))
+        print("Engine cylinders: " + str(carEngine.engineCylinders))
+        print("Transmission: " + str(carEngine.transmission))
+        print("Horsepower: " + str(carEngine.horsepower) + "bhp")
+    if hasInterior:
+        print("Front legroom: " + str(interior.frontLegroom) + "cm")
+        print("Rear legroom: " + str(interior.backLegroom) + "cm")
+        print("Interior colour: " + str(interior.interiorColor))
+        print("Maximum seating: " + str(interior.maximumSeating))
+    if hasFuel:
+        print("Fuel tank volume: " + str(fuelSpecs.fuelTankVolume) + "L")
+        print("Fuel type: " + str(fuelSpecs.fuelType))
+        print("City economy: " + str(fuelSpecs.cityFuelEconomy) + "kpL")
+        print("Highway economy: " + str(fuelSpecs.highwayFuelEconomy) + "kpL")
+    if hasWheelbase:
+        print("Drive system: " + str(wheelSystem.wheelSystem))
+        print("Wheelbase: " + str(wheelSystem.wheelbase) + "cm")
+    if not isNew:
+        print("Damaged frame: " + str(depreciationFactors.frameDamaged))
+        print("Has been in an accident: " + str(depreciationFactors.hasAccidents))
+        print("Is salvage: " + str(depreciationFactors.salvage))
+
+    print("")
+
+    listingDescription = input("Enter a description for this listing: ")
+
+    listing = Listing(
+        listingDate=datetime.date.today(),
+        daysOnMarket=0,
+        description=format_for_db(listingDescription, "string", 1000),
+        price=format_for_db(price, "float", 9, 2),
+        dealerEmail=format_for_db(g_user.email, "string", 125)
+    )
 
     confirm = input("Please type 'confirm' to list this vehicle, or any other input to cancel: ")
 
     if (confirm == "confirm"):
-        g_listings.append({
-            "l_id": len(g_listings),
-            "make": make,
-            "model": model,
-            "year": year,
-            "price": price,
-            "new": True if new == "y" else False,
-            "vin": vin
-        })
-        g_owned_listings.append(len(g_listings) - 1)
+        session = Session(engine)
+        session.add(listing)
+        session.commit()
+
+        car = Car(
+            vin=format_for_db(vin, "string", 17),
+            bodyType=format_for_db(bodyType, "string", 40),
+            height=format_for_db(height, "float", 4, 1),
+            year=format_for_db(year, "integer"),
+            modelName=format_for_db(model, "string", 40),
+            franchiseMake=format_for_db(model, "string", 40),
+            isNew=format_for_db(isNew, "boolean"),
+            isCab=format_for_db(isCab, "boolean"),
+            listingId=format_for_db(listing.listingId, "string", 17)
+        )
+
+        session = Session(engine)
+        session.add(car)
+        session.commit()
+
+        list_car(
+            trimPackage=trimPackage,
+            hasEngine=hasEngine,
+            interior=interior,
+            wheelSystem=wheelSystem,
+            fuelSpecs=fuelSpecs,
+            depreciationFactors=depreciationFactors
+        )
         print("Car listed for sale!")
     else:
         print("Listing cancelled.")
@@ -516,13 +776,12 @@ def detail(l_id):
     options = []
 
     while (1):
-        owned = False
-        saved = False
-
-        if (owned):
+        if (g_user.userType == "Dealer"):
             options = ["Edit Listing", "Remove Listing"]
-        else:
+        elif (g_user.userType == "Customer"):
             options = ["Purchase Vehicle"]
+        else:
+            options = ["Purchase Vehicle", "Edit Listing", "Remove Listing"]
         selection = get_input(options)
         if (owned):
             if (selection == 1):
@@ -540,15 +799,8 @@ def detail(l_id):
                 return
         else:
             if (selection == 1):
-
-                # delete Car
-                session = Session(engine, future=True)
-                statement = db.delete(Car).where(Car.listingId == l_id)
-                session.execute(statement)
-                # delete Listing
-                session = Session(engine, future=True)
-                statement = db.delete(Listing).where(Listing.listingId == l_id)
-                session.execute(statement)
+                # do something to buy the vehicle
+                
                 print("Vehicle purchased! Thank you for your patronage.")
                 nav_up()
                 return
