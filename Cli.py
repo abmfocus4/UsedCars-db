@@ -79,7 +79,7 @@ class Listing(Base):
 class Engine(Base):
     __tablename__ = 'Engine'
 
-    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.VIN"), primary_key=True, nullable=False)
     engineCylinders = db.Column('engineCylinders', db.String(40), nullable=True)
     engineDisplacement = db.Column('engineDisplacement', db.Numeric(8,3), nullable=True)
     engineType = db.Column('engineType', db.String(40), nullable=True)
@@ -91,7 +91,7 @@ class Engine(Base):
 class FuelSpecs(Base):
     __tablename__ = 'FuelSpecs'
 
-    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.VIN"), primary_key=True, nullable=False)
     fuelTankVolume = db.Column('fuelTankVolume', db.Numeric(4,1), nullable=True)
     fuelType = db.Column('fuelType', db.String(40), nullable=True)
     cityFuelEconomy = db.Column('cityFuelEconomy', db.Numeric(5,2), nullable=True)
@@ -100,14 +100,14 @@ class FuelSpecs(Base):
 class TrimPackage(Base):
     __tablename__ = 'TrimPackage'
 
-    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.VIN"), primary_key=True, nullable=False)
     trimId = db.Column('trimId', db.Numeric(5,0), nullable=True)
     trimName = db.Column('trimName', db.String(125), nullable=True)
 
 class Interior(Base):
     __tablename__ = 'Interior'
 
-    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.VIN"), primary_key=True, nullable=False)
     backLegroom = db.Column('backLegroom', db.Numeric(4,1), nullable=True)
     frontLegroom = db.Column('frontLegroom', db.Numeric(4,1), nullable=True)
     interiorColor = db.Column('interiorColor', db.String(125), nullable=True)
@@ -116,7 +116,7 @@ class Interior(Base):
 class WheelSystem(Base):
     __tablename__ = 'WheelSystem'
 
-    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.VIN"), primary_key=True, nullable=False)
     wheelSystem = db.Column('wheelSystem', db.String(3), nullable=True)
     wheelSystemDisplay = db.Column('wheelSystemDisplay', db.String(40), nullable=True)
     wheelbase = db.Column('wheelbase', db.Numeric(4,1), nullable=True)
@@ -124,7 +124,7 @@ class WheelSystem(Base):
 class DepreciationFactors(Base):
     __tablename__ = 'DepreciationFactors'
 
-    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.vin"), primary_key=True, nullable=False)
+    vin = db.Column('VIN', db.String(17), db.ForeignKey("Car.VIN"), primary_key=True, nullable=False)
     frameDamaged = db.Column('frameDamaged', db.String(5), nullable=True)
     hasAccidents = db.Column('hasAccidents', db.String(5), nullable=True)
     salvage = db.Column('salvage', db.String(5), nullable=True)
@@ -139,7 +139,7 @@ config = {
     'database': 'Cars'
 }
 
-g_user = User()
+g_user = None
 g_loc = []
 g_filters = [
     {
@@ -242,8 +242,10 @@ def format_for_db(user_input, input_type, v1=0, v2=0):
         except ValueError:
             return None
 
-def list_car(fuelSpecs=None, wheelSystem=None, trimPackage=None, depreciationFactors=None, interior=None):
+def list_car(carEngine=None, fuelSpecs=None, wheelSystem=None, trimPackage=None, depreciationFactors=None, interior=None):
     session = Session(engine)
+    if carEngine is not None:
+        session.add(carEngine)
     if fuelSpecs is not None:
         session.add(fuelSpecs)
     if wheelSystem is not None:
@@ -331,8 +333,10 @@ def list_options(options):
 
 def get_input(options):
     list_options(options)
+    if len(options) == 0:
+        print("No options available; enter 'b' to return to the previous screen.")
     selection = parse(input("Select an option: "))
-    while (selection < -1 or selection > len(options)):
+    while (selection < -1 or selection > len(options) and len(options) > 0):
         print("Invalid input.")
         list_options(prompt, options)
         selection = parse(input("Select an option: "))
@@ -361,7 +365,6 @@ def active_filter(f):
 
 #navigate throught the app
 def main():
-
     options = ["Search Listings"]
 
     if (g_user.userType != "Customer"):
@@ -392,6 +395,7 @@ def startup():
 
 #get the user to sign up or log into an account
 def login():
+    global g_user
     options = ["Sign Up", "Log In"]
     pw1 = "1"
     pw2 = "2"
@@ -481,17 +485,29 @@ def login():
 
 def owned_listings():
     nav_down("owned_listings")
-    if (len(g_owned_listings) == 0):
-        print("Looks like you don't have any listings! You can create them from the main page.")
+
+    print("")
+    sys.stdout.write("\rRetrieving owned listings (this may take some time)...")
+
+    session = Session(engine, future=True)
+    statement = db.select(Car, Listing).join(Listing).where(Listing.dealerEmail == str(g_user.email))
+    results = session.execute(statement).all()
+
+    if (len(results) == 0):
+        sys.stdout.write("\rLooks like you don't have any listings! You can create them from the main page.")
+        sys.stdout.flush()
     else:
         while (1):
+            sys.stdout.write("\rYou can see your listings below; select one to view it in more detail, edit, or remove it.")
+            print("")
             options = []
-            for i, l in enumerate(g_owned_listings):
-                listing = g_listings[l]
-                options.append(listing["make"] + " " + listing["model"])
+            option_ids = []
+            for car, listing in results:
+                option_ids.append(car.listingId)
+                options.append(car.franchiseMake + " " + car.modelName + " [$" + str(listing.price) + "]")
             selection = get_input(options)
             if (selection > 0 and selection <= len(options)):
-                detail(g_owned_listings[selection - 1])
+                detail(option_ids[selection - 1])
             elif (selection == 0):
                 break
             elif (selection == -1):
@@ -670,10 +686,10 @@ def new_listing():
             height=format_for_db(height, "float", 4, 1),
             year=format_for_db(year, "integer"),
             modelName=format_for_db(model, "string", 40),
-            franchiseMake=format_for_db(model, "string", 40),
+            franchiseMake=format_for_db(make, "string", 40),
             isNew=format_for_db(isNew, "boolean"),
             isCab=format_for_db(isCab, "boolean"),
-            listingId=format_for_db(listing.listingId, "string", 17)
+            listingId=format_for_db(listing.listingId, "integer")
         )
 
         session = Session(engine)
@@ -682,7 +698,7 @@ def new_listing():
 
         list_car(
             trimPackage=trimPackage,
-            hasEngine=hasEngine,
+            carEngine=carEngine,
             interior=interior,
             wheelSystem=wheelSystem,
             fuelSpecs=fuelSpecs,
@@ -765,6 +781,7 @@ def detail(l_id):
     session = Session(engine, future=True)
     statement = db.select(Car, Listing).join(Listing).where(Car.listingId == l_id)
     result = session.execute(statement).first()
+    owned = False
 
     print("")
     print("Make: " + result.Car.franchiseMake)
@@ -777,7 +794,9 @@ def detail(l_id):
 
     while (1):
         if (g_user.userType == "Dealer"):
-            options = ["Edit Listing", "Remove Listing"]
+            if result.Listing.dealerEmail == g_user.email:
+                options = ["Edit Listing", "Remove Listing"]
+                owned = True
         elif (g_user.userType == "Customer"):
             options = ["Purchase Vehicle"]
         else:
