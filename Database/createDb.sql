@@ -62,7 +62,7 @@ create table PhoneNumber (
 -- Listing
 select 'Listing' as '';
 create table Listing (
-    listingId int not null unique check(listingId >= 0),
+    listingId int auto_increment,
     listingDate date not null,
     daysOnMarket int,
     description text,
@@ -153,7 +153,7 @@ set activeListing = 'False';
 -- Address1
 select 'Address1' as '';
 create table Address1 (
-    listingId int not null unique check(listingId >= 0),
+    listingId int not null,
     zip varchar(32),
     city varchar(125),
     primary key (listingId),
@@ -233,7 +233,7 @@ set listingId = @col39,
 -- Address2
 select 'Address2' as '';
 create table Address2 (
-    listingId int not null unique check(listingId >= 0),
+    listingId int not null,
     latitude decimal(6, 4) not null,
     longitude decimal(7, 4) not null,
     primary key (listingId),
@@ -313,7 +313,7 @@ set listingId = @col39,
 -- DealerDetails
 select 'DealerDetails' as '';
 create table DealerDetails (
-    listingId int not null unique check(listingId >= 0),
+    listingId int not null,
     franchiseDealer varchar(5) check(franchiseDealer in ('False', 'True', null)),
     sellerRating decimal(5, 2),
     primary key (listingId),
@@ -414,7 +414,7 @@ create table Car (
     isFleet varchar(5) check(isFleet in ('False', 'True', null)),
     isCab varchar(5) check(isCab in ('False', 'True', null)),
     isNew varchar(5) check(isNew in ('False', 'True', null)),
-    listingId int not null unique check(listingId >= 0),
+    listingId int not null,
     foreign key (listingId) references Listing(listingId),
     primary key (VIN)
 );
