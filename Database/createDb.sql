@@ -1,10 +1,10 @@
 -- Clean dB
 drop table if exists PhoneNumber;
 drop table if exists User;
-drop table if exists Listing;
 drop table if exists Address1;
 drop table if exists Address2;
 drop table if exists DealerDetails;
+drop table if exists Listing;
 drop table if exists Appointment;
 drop table if exists Car;
 drop table if exists TrimPackage;
@@ -27,33 +27,29 @@ create table User (
     pass varchar(40) not null,
     userType varchar(8) not null,
     primary key (email),
-    check(email regexp '^\S+@\S+\.\S+$'),
-    check(
-        pass regexp '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
-    ),
     check(userType in ('Admin', 'Customer', 'Dealer'))
 );
 insert into User(email, firstName, lastName, pass, userType)
 values (
-        `bmalapat@uwaterloo.ca`,
-        `Meg`,
-        `Alapati`,
-        `password`,
-        `Admin`
+        'bmalapat@uwaterloo.ca',
+        'Meg',
+        'Alapati',
+        'Pass123!@#',
+        'Admin'
     ),
     (
-        `s2ishraq@uwaterloo.ca`,
-        `Shwapneel`,
-        `Ishraq`,
-        `password`,
-        `Admin`
+        's2ishraq@uwaterloo.ca',
+        'Shwapneel',
+        'Ishraq',
+        'Pass123!@#',
+        'Admin'
     ),
     (
-        `connor.peter.barker@uwaterloo.ca`,
+        'connor.peter.barker@uwaterloo.ca',
         'Connor',
         'Barker',
-        `password`,
-        `Admin`
+        'Pass123!@#',
+        'Admin'
     );
 -- PhoneNumber
 select 'PhoneNumber' as '';
@@ -66,14 +62,15 @@ create table PhoneNumber (
 -- Listing
 select 'Listing' as '';
 create table Listing (
-    listingId int not null unique,
+    listingId int auto_increment,
     listingDate date not null,
     daysOnMarket int,
-    description varchar(1000),
+    description text,
     mainPictureURL varchar(400),
-    majorOptions varchar(1000),
+    majorOptions text,
     price decimal(9, 2),
-    dealerEmail varchar(125),
+    activeListing varchar(5) default 'True' check(activeListing in ('False', 'True')),
+    dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
     primary key (listingId)
 );
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Listing fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
@@ -151,10 +148,12 @@ set listingId = @col39,
     mainPictureURL = @col41,
     majorOptions = @col42,
     price = @col49;
+update Listing
+set activeListing = 'False';
 -- Address1
 select 'Address1' as '';
 create table Address1 (
-    listingId int not null unique,
+    listingId int not null,
     zip varchar(32),
     city varchar(125),
     primary key (listingId),
@@ -234,8 +233,9 @@ set listingId = @col39,
 -- Address2
 select 'Address2' as '';
 create table Address2 (
-    listingId int not null unique latitude decimal(6, 4),
-    longitude decimal(7, 4),
+    listingId int not null,
+    latitude decimal(6, 4) not null,
+    longitude decimal(7, 4) not null,
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
 );
@@ -313,9 +313,9 @@ set listingId = @col39,
 -- DealerDetails
 select 'DealerDetails' as '';
 create table DealerDetails (
-    listingId int not null unique,
-    franchiseDealer decimal(2, 2),
-    sellerRating decimal(3, 2),
+    listingId int not null,
+    franchiseDealer varchar(5) check(franchiseDealer in ('False', 'True', null)),
+    sellerRating decimal(5, 2),
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
 );
@@ -389,7 +389,7 @@ load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into t
 )
 set listingId = @col39,
     franchiseDealer = @col20,
-    sellerRating = @col52;
+    sellerRating = nullif(@col52, '');
 -- Appointment
 select 'Appointment' as '';
 create table Appointment (
@@ -398,6 +398,7 @@ create table Appointment (
     customerEmail varchar(125) not null,
     appointmentDateTime datetime not null,
     information varchar(400),
+    active varchar(5) default 'True' check(active in ('False', 'True')),
     primary key (appointmentNumber, dealerEmail, customerEmail),
     foreign key (dealerEmail) references User(email),
     foreign key (customerEmail) references User(email)
@@ -414,7 +415,7 @@ create table Car (
     isFleet varchar(5) check(isFleet in ('False', 'True', null)),
     isCab varchar(5) check(isCab in ('False', 'True', null)),
     isNew varchar(5) check(isNew in ('False', 'True', null)),
-    listingId int not null unique,
+    listingId int not null,
     foreign key (listingId) references Listing(listingId),
     primary key (VIN)
 );
@@ -488,7 +489,7 @@ load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into t
 )
 set VIN = @col1,
     bodyType = @col6,
-    height = left(@col26, char_length(@col26) -2),
+    height = nullif(left(@col26, char_length(@col26) -2), ''),
     year = @col66,
     modelName = @col46,
     franchiseMake = @col21,
@@ -831,14 +832,17 @@ load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into t
     @col65,
     @col66
 )
-set fuelTankVolume = left(
-        @col23,
-        char_length(@col23) -3
+set fuelTankVolume = nullif(
+        left(
+            @col23,
+            char_length(@col23) -3
+        ),
+        ''
     ),
     fuelType = @col24,
     VIN = @col1,
-    highwayFuelEconomy = @col27,
-    cityFuelEconomy = @col9;
+    highwayFuelEconomy = nullif(@col27, ''),
+    cityFuelEconomy = nullif(@col9, '');
 -- Interior
 select 'Interior' as '';
 create table Interior (
@@ -1000,11 +1004,7 @@ load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into t
     @col65,
     @col66
 )
-set trimId = nullif(@col59, ''),
-    trimId = trim(
-        leading 't'
-        from @col59
-    ),
+set trimId = nullif(right(@col59, char_length(@col59) -1), ''),
     VIN = @col1,
     trimName = @col60;
 -- CarOwners
