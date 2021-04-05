@@ -3,7 +3,7 @@ import sys
 import json
 import datetime
 import sqlalchemy as db
-from sqlalchemy.orm import Session, relationship
+from sqlalchemy.orm import Session, aliased
 from sqlalchemy.ext.declarative import declarative_base
 # this script also requires pymysql & cryptography to be installed with the below command
 # `pip3 install pymysql cryptography`
@@ -130,6 +130,15 @@ class DepreciationFactors(Base):
     salvage = db.Column('salvage', db.String(5), nullable=True)
     savingsAmount = db.Column('savingsAmount', db.Numeric(7,2), nullable=True)
 
+class Appointment(Base):
+    __tablename__ = 'Appointment'
+
+    appointmentNumber = db.Column('appointmentNumber', db.Integer, primary_key=True, nullable=False)
+    dealerEmail = db.Column('dealerEmail', db.String(125), db.ForeignKey("User.email"), primary_key=True, nullable=False)
+    customerEmail = db.Column('customerEmail', db.String(125), db.ForeignKey("User.email"), primary_key=True, nullable=False)
+    appointmentDateTime = db.Column('appointmentDateTime', db.DateTime, nullable=False)
+    information = db.Column('information', db.String(400), nullable=True)
+
 # specify database configurations
 config = {
     'host': 'localhost',
@@ -141,6 +150,48 @@ config = {
 
 g_user = None
 g_loc = []
+g_sorting = [
+    {
+        "name": "Price",
+        "type": "standard",
+        "active": False
+    },
+    {
+        "name": "Price",
+        "type": "inverted",
+        "active": False
+    },
+    {
+        "name": "Listing Age",
+        "type": "standard",
+        "active": False
+    },
+    {
+        "name": "Listing Age",
+        "type": "inverted",
+        "active": False
+    },
+    {
+        "name": "New",
+        "type": "standard",
+        "active": False
+    },
+    {
+        "name": "New",
+        "type": "inverted",
+        "active": False
+    },
+    {
+        "name": "Year",
+        "type": "standard",
+        "active": False
+    },
+    {
+        "name": "Year",
+        "type": "inverted",
+        "active": False
+    }
+]
 g_filters = [
     {
         "name": "Year",
@@ -305,6 +356,24 @@ def build_search(page):
             statement = statement.where(column <= parse(f['value']))
         elif f['relationship'] == "<":
             statement = statement.where(column < parse(f['value']))
+
+    order = None
+    for sort in g_sorting:
+        if (sort["active"]):
+            if (sort["name"] == "Price"):
+                order = Listing.price
+            elif (sort["name"] == "Listing Age"):
+                order = Listing.daysOnMarket
+            elif (sort["name"] == New):
+                order = Car.isNew
+            else:
+                order = Car.year
+
+            if (sort["type"] == "standard"):
+                statement = statement.order_by(db.asc(order))
+            else:
+                statement = statement.order_by(db.desc(order))
+            break
     
     return statement.limit(10).offset((page - 1) * 10)
 
@@ -365,26 +434,26 @@ def active_filter(f):
 
 #navigate throught the app
 def main():
-    options = ["Search Listings"]
+    options = ["Search Listings", "View Appointments"]
 
     if (g_user.userType != "Customer"):
         options.extend(["Create Listing", "View Your Listings"])
 
     nav_down("main")
-    while (1):
+    while True:
         selection = get_input(options)
         if (selection == 1):
             search()
         elif (selection == 2):
-            new_listing()
+            appointments()
         elif (selection == 3):
+            new_listing()
+        elif (selection == 4):
             owned_listings()
         elif (selection == 0):
             continue
         else:
-            clear_nav()
-            main()
-            return
+            sys.exit()
 
 #starting point of the cli
 def startup():
@@ -402,15 +471,15 @@ def login():
     email = "example@example.com"
     nav_down("login")
 
-    while (1):
+    while True:
         selection = get_input(options)
         if (selection == 1):
             userType = "select"
             while ( (userType != 'Customer') and (userType != 'Dealer') ):
                 userType = input("Are you a 'Customer' or a 'Dealer' (Spell Customer or Dealer exactly the same as this)?: ")
 
-            g_firstname = input("enter your firstname: ")
-            g_lastname = input("enter your lastname: ")
+            g_firstname = input("Enter your first name: ")
+            g_lastname = input("Enter your last name: ")
             while (pw1 != pw2):
                 password_check = False
                 while ( not password_check ):
@@ -477,11 +546,183 @@ def login():
         elif (selection == 0):
             continue
         elif (selection == -1):
-            continue
+            sys.exit()
     
     print("Login successful! Welcome to Ottotradr,", g_user.firstName)
 
     nav_up()
+
+def new_appointment(l_id):
+    nav_down("new_appointment")
+
+    session = Session(engine, future=True)
+    statement = db.select(Listing, User, Car).join(User, Listing.dealerEmail == User.email).where(Listing.listingId == l_id)
+    result = session.execute(statement).first()
+
+    dealerEmail = result.Listing.dealerEmail
+
+    print("You're setting up a meeting with %s regarding the purchase of a %s.".format(str(result.User.firstName) + " " + str(result.User.lastName), str(result.Car.franchiseMake) + " " + str(result.Car.modelName)))
+    print("Please fill out the below information.")
+
+    appointmentDateTime = 0
+    information = ""
+
+    while True:
+        appointmentDateTime = input("When would you like to schedule the appointment for (DDMMYYYY): ")
+        try:
+            int(appointmentDateTime)
+            if (len(appointmentDateTime) != 8):
+                print("Please enter a valid date.")
+                continue
+            break
+        except ValueError:
+            print("Please enter a valid date.")
+            continue
+
+    while True:
+        hour = 0
+        minute = 0
+        appointmentTime = input("When would you like to schedule the appointment for (HH:MM, 24hr): ")
+        try:
+            hour = int(appointmentTime[0:2])
+            minute = int(appointmentTime[3:5])
+            if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+                print("Please enter a valid time.")
+                continue
+        except ValueError:
+            print("Please enter a valid time.")
+            continue
+
+        appointmentDateTime = datetime.datetime(
+            int(appointmentDateTime[4:8]),
+            int(appointmentDateTime[2:4]),
+            int(appointmentDateTime[0:2]),
+            hour,
+            minute
+        )
+        break
+
+    information = input("Please enter any extra information you'd like to attach to the appointment: ")
+
+    session = Session(engine, future=True)
+    statement = db.select(Appointment).where(Appointment.dealerEmail == dealerEmail).where(Appointment.customerEmail == g_user.email)
+    results = session.execute(statement).all()
+
+    appointmentNumber = len(results)
+
+    appointment = Appointment(
+        appointmentNumber=format_for_db(appointmentNumber, "integer"),
+        dealerEmail=format_for_db(dealerEmail, "string", 125),
+        customerEmail=format_for_db(g_user.email, "string", 125),
+        appointmentDateTime=appointmentDateTime,
+        information=format_for_db(information, "string", 400)
+    )
+
+    session = Session(engine)
+    session.add(appointment)
+    session.commit()
+
+    print("Your appointment has been successfully created.")
+            
+    nav_up()
+
+
+def appointments():
+    nav_down("appointments")
+
+    print("")
+    sys.stdout.write("\rRetrieving appointments (this may take some time)...")
+
+    dealer = aliased(User)
+    customer = aliased(User)
+
+    session = Session(engine, future=True)
+    statement = 0
+
+    if (g_user.userType == "Dealer"):
+        statement = db.select(Appointment, User).join(User, Appointment.customerEmail == User.email).where(Appointment.dealerEmail == g_user.email)
+    elif (g_user.userType == "Customer"):
+        statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email).where(Appointment.customerEmail == g_user.email)
+    else:
+        statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
+    
+    results = session.execute(statement).all()
+
+    if (len(results) == 0):
+        sys.stdout.write("\rLooks like you don't have any appointments! You can create them from the detail view of a listing.")
+        sys.stdout.flush()
+    else:
+        while True:
+            sys.stdout.write("\rYou can see your appointments below; select one to view it in more detail, edit, or delete it.")
+            print("")
+            options = []
+            option_ids = []
+
+            if (g_user.userType != "Admin"):
+                for appointment, user in results:
+                    option_ids.append([appointment.appointmentNumber, appointment.dealerEmail, appointment.customerEmail])
+                    options.append("Appointment with {name:s} on {date:s} at {time:s}".format(
+                                                                                        name=user.firstName + " " + user.lastName,
+                                                                                        date=appointment.appointmentDateTime.strftime("%x"),
+                                                                                        time=appointment.appointmentDateTime.strftime("%X")
+                                                                                    ))
+            else:
+                for appointment, dealer, customer in results:
+                    option_ids.append([appointment.appointmentNumber, appointment.dealerEmail, appointment.customerEmail])
+                    options.append("Appointment between {dealerName:s} (Dealer) and {customerName:s} (Customer) on {date:s} at {time:s}".format(
+                                                                                                                                            dealerName=dealer.firstName + " " + dealer.lastName,
+                                                                                                                                            customerName=customer.firstName + " " + customer.lastName,
+                                                                                                                                            date=appointment.appointmentDateTime.strftime("%x"),
+                                                                                                                                            time=appointment.appointmentDateTime.strftime("%X")
+                                                                                                                                        ))
+
+            selection = get_input(options)
+            if (selection > 0 and selection <= len(options)):
+                appointment_detail(option_ids[selection - 1][0], option_ids[selection - 1][1], option_ids[selection - 1][2])
+            elif (selection == 0):
+                break
+            elif (selection == -1):
+                sys.exit()
+
+    nav_up()
+
+def appointment_detail(aptNum, dealerEmail, userEmail):
+    nav_down("appointment_detail")
+
+    dealer = aliased(User)
+    customer = aliased(User)
+
+    session = Session(engine, future=True)
+    statement = 0
+
+    if (g_user.userType == "Customer"):
+        statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email)
+    elif (g_user.userType == "Dealer"):
+        statement = db.select(Appointment, User).join(User, Appointment.userEmail == User.email)
+    else:
+        statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
+
+    statement = statement.where(Appointment.appointmentNumber == aptNum and Appointment.dealerEmail == dealerEmail and Appointment.userEmail == userEmail)
+    result = session.execute(statement).first()
+
+    while True:
+        if (g_user.userType == "Customer"):
+            print("Dealer: " + result.User.firstName + " " + result.User.lastName)
+            print("Dealer email: " + result.Appointment.dealerEmail)
+        elif (g_user.userType == "Dealer"):
+            print("Customer: " + result.User.firstName + " " + result.User.lastName)
+            print("Customer email: " + result.Appointment.customerEmail)
+        else:
+            print("Dealer: " + result[1].firstName + " " + result[1].lastName)
+            print("Dealer email: " + result[0].dealerEmail)
+            print("Customer: " + result[2].firstName + " " + result[2].lastName)
+            print("Customer email: " + result[0].customerEmail)
+        print("Appointment date & time: " + result.Appointment.appointmentDateTime.strftime("%c"))
+        print("Extra information: " + result.Appointment.information)
+        
+        options = ["Edit Date & Time", "Edit Information"]
+        selection = get_input(options)
+        break
 
 def owned_listings():
     nav_down("owned_listings")
@@ -497,7 +738,7 @@ def owned_listings():
         sys.stdout.write("\rLooks like you don't have any listings! You can create them from the main page.")
         sys.stdout.flush()
     else:
-        while (1):
+        while True:
             sys.stdout.write("\rYou can see your listings below; select one to view it in more detail, edit, or remove it.")
             print("")
             options = []
@@ -511,9 +752,7 @@ def owned_listings():
             elif (selection == 0):
                 break
             elif (selection == -1):
-                clear_nav()
-                main()
-                return
+                sys.exit()
 
     nav_up()
         
@@ -530,7 +769,7 @@ def new_listing():
     
     make = input("Enter vehicle make: ")
     model = input("Enter vehicle model: ")
-    height = input("Enter vehicle height: ")
+    height = input("Enter vehicle height (cm): ")
     bodyType = input("Enter vehicle body type: ")
     year = input("Enter vehicle year of make: ")
     price = input("Enter desired list price: ")
@@ -666,6 +905,7 @@ def new_listing():
     listingDescription = input("Enter a description for this listing: ")
 
     listing = Listing(
+        listingId=format_for_db(14468626, "integer"),
         listingDate=datetime.date.today(),
         daysOnMarket=0,
         description=format_for_db(listingDescription, "string", 1000),
@@ -713,21 +953,21 @@ def new_listing():
 
 def search():
     nav_down("search")
-    options = ["Add Filters", "View & Remove Filters", "Display Results"]
-    while (1):
+    options = ["Add Filters", "View & Remove Filters", "Sort Results", "Display Results"]
+    while True:
         selection = get_input(options)
         if (selection == 1):
             addfilters()
         elif (selection == 2):
             removefilters()
         elif (selection == 3):
+            selectsort()
+        elif (selection == 4):
             display()
         elif (selection == 0):
             break
         else:
-            clear_nav()
-            main()
-            return
+            sys.exit()
 
     nav_up()
 
@@ -736,7 +976,7 @@ def display():
 
     page = 1
 
-    while (1):
+    while True:
         print("")
         sys.stdout.write("\rSearching (this may take some time)")
 
@@ -747,7 +987,7 @@ def display():
         result = session.execute(statement).all()
         session.close()
 
-        sys.stdout.write("\rSelect a listing to view it in detail, save it, or buy it. [Page {page:d}]\n".format(page=page))
+        sys.stdout.write("\rSelect a listing to view it in detail. [Page {page:d}]\n".format(page=page))
         sys.stdout.flush()
 
         for car, listing in result:
@@ -770,10 +1010,8 @@ def display():
         elif (selection == 0):
             nav_up()
             return
-        else:
-            clear_nav()
-            main()
-            return
+        elif (selection == -1):
+            sys.exit()
 
 def detail(l_id):
     nav_down("listing_detail")
@@ -792,15 +1030,15 @@ def detail(l_id):
     print("VIN: " + result.Car.vin)
     options = []
 
-    while (1):
+    while True:
         if (g_user.userType == "Dealer"):
             if result.Listing.dealerEmail == g_user.email:
                 options = ["Edit Listing", "Remove Listing"]
                 owned = True
         elif (g_user.userType == "Customer"):
-            options = ["Purchase Vehicle"]
+            options = ["Make An Appointment"]
         else:
-            options = ["Purchase Vehicle", "Edit Listing", "Remove Listing"]
+            options = ["Make An Appointment", "Edit Listing", "Remove Listing"]
         selection = get_input(options)
         if (owned):
             if (selection == 1):
@@ -812,24 +1050,18 @@ def detail(l_id):
             elif (selection == 0):
                 nav_up()
                 return
-            else:
-                clear_nav()
-                main()
-                return
+            elif (selection == -1):
+                sys.exit()
         else:
             if (selection == 1):
-                # do something to buy the vehicle
-                
-                print("Vehicle purchased! Thank you for your patronage.")
+                new_appointment(result.Listing.listingId)
                 nav_up()
                 return
-            elif (selection == 0):
+            elif selection == 0:
                 nav_up()
                 return
-            else:
-                clear_nav()
-                main()
-                return
+            elif selection == -1:
+                sys.exit()
 
 def removelisting(l_id):
     nav_down("remove_listing")
@@ -861,7 +1093,7 @@ def editlisting(l_id):
 
     options.append("View Details")
     
-    while (1):
+    while True:
         selection = get_input(options)
         if (selection > 0 and selection < len(options)):
             value = input("Enter a new value for " + options[selection - 1] + ": ")
@@ -873,19 +1105,17 @@ def editlisting(l_id):
             print("Price: " + str(l["price"]))
             print("New: " + str(l["new"]))
             print("VIN: " + str(l["vin"]))
-        elif (selection == 0):
+        elif selection == 0:
             break
-        else:
-            clear_nav()
-            main()
-            break
+        elif selection == -1:
+            sys.exit()
 
     nav_up()
 
 def removefilters():
     nav_down("remove_filters")
     print("Select a filter to remove it")
-    while (1):
+    while True:
         active_filters = filter(active_filter, g_filters)
         options = []
         option_names = []
@@ -904,12 +1134,10 @@ def removefilters():
                 if (f["name"] == option_names[selection - 1]["name"]):
                     f["active"] = 0
                     break
-        elif (selection == 0):
+        elif selection == 0:
             break
-        elif (selection == -1):
-            clear_nav()
-            main()
-            return
+        elif selection == -1:
+            sys.exit()
 
     nav_up()
 
@@ -935,14 +1163,13 @@ def editfilter(index):
     f["value"] = val
 
     nav_up()
-    return
 
 def addfilters():
     nav_down("add_filters")
     options = []
     for f in g_filters:
         options.append(f["name"])
-    while (1):
+    while True:
         selection = get_input(options)
         if (selection > 0 and selection <= len(g_filters)):
             editfilter(selection - 1)
@@ -950,10 +1177,44 @@ def addfilters():
             nav_up()
             break
         elif (selection == -1):
-            clear_nav()
-            main()
-            return
+            sys.exit()
+
+def selectsort():
+    nav_down("select_sort")
+
+    print("")
+    current = "None"
+    currentIndex = -1
+    options = []
+
+    for i, sort in enumerate(g_sorting):
+        if (sort["active"]):
+            current = sort["name"] + " [" + ("High-Low" if sort["type"] == "inverted" else "Low-High") + "]"
+            current_index = i
+        options.append(sort["name"] + " [" + ("High-Low" if sort["type"] == "inverted" else "Low-High") + "]")
+    
+    while True:
+        print("")
+        print("Active sort: " + current)
+        selection = get_input(options)
+        if (selection > 0 and selection < len(options)):
+            if currentIndex == selection - 1:
+                g_sorting[selection - 1]["active"] = False
+                currentIndex = -1
+                current = "None"
+            else:
+                if (currentIndex > -1):
+                    g_sorting[currentIndex]["active"] = False
+                g_sorting[selection - 1]["active"] = True
+                currentIndex = selection - 1
+                current = g_sorting[selection - 1]["name"] + " [" + ("High-Low" if g_sorting[selection - 1]["type"] == "inverted" else "Low-High") + "]"
+        elif (selection == 0):
+            break
         else:
-            print("Invalid input.")
+            sys.exit()
+
+    nav_up()
+
+
 
 startup()
