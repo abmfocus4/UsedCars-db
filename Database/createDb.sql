@@ -1,12 +1,9 @@
 -- Clean dB
 drop table if exists PhoneNumber;
-drop table if exists User;
 drop table if exists Address1;
 drop table if exists Address2;
 drop table if exists DealerDetails;
-drop table if exists Listing;
 drop table if exists Appointment;
-drop table if exists Car;
 drop table if exists TrimPackage;
 drop table if exists Interior;
 drop table if exists WheelSystem;
@@ -14,6 +11,9 @@ drop table if exists Engine;
 drop table if exists FuelSpecs;
 drop table if exists DepreciationFactors;
 drop table if exists CarOwners;
+drop table if exists User;
+drop table if exists Car;
+drop table if exists Listing;
 -- Clean outfile
 \! rm -f cars_outfile.txt 
 tee cars_outfile.txt;
@@ -68,7 +68,7 @@ create table Listing (
     description text,
     mainPictureURL varchar(400),
     majorOptions text,
-    price decimal(9, 2),
+    price decimal(9, 2) not null,
     activeListing varchar(5) default 'True' check(activeListing in ('False', 'True')),
     dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
     primary key (listingId)
@@ -315,7 +315,7 @@ select 'DealerDetails' as '';
 create table DealerDetails (
     listingId int not null,
     franchiseDealer varchar(5) check(franchiseDealer in ('False', 'True', null)),
-    sellerRating decimal(5, 2),
+    sellerRating decimal(5, 4),
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
 );
