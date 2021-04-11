@@ -3,7 +3,6 @@ drop table if exists PhoneNumber;
 drop table if exists Address1;
 drop table if exists Address2;
 drop table if exists DealerDetails;
-drop table if exists Appointment;
 drop table if exists TrimPackage;
 drop table if exists Interior;
 drop table if exists WheelSystem;
@@ -14,6 +13,8 @@ drop table if exists CarOwners;
 drop table if exists User;
 drop table if exists Car;
 drop table if exists Listing;
+drop table if exists Appointment;
+
 -- Clean outfile
 \! rm -f cars_outfile.txt 
 tee cars_outfile.txt;
@@ -394,6 +395,7 @@ set listingId = @col39,
 select 'Appointment' as '';
 create table Appointment (
     appointmentNumber int not null,
+    listingId int not null,
     dealerEmail varchar(125) not null,
     customerEmail varchar(125) not null,
     appointmentDateTime datetime not null,
