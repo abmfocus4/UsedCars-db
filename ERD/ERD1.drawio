@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net" modified="2021-04-11T18:50:20.045Z" agent="5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36" etag="VHmntYzv0bwrMscmyriA" version="14.5.10" type="github">
+<mxfile host="app.diagrams.net" modified="2021-04-11T18:51:20.987Z" agent="5.0 (Macintosh; Intel Mac OS X 11_2_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36" etag="PnNtgRiz_2_dGe5s1y_r" version="14.5.10" type="github">
   <diagram id="D8fP1rWcKyjfJTmIoYzf" name="Page-1">
-    <mxGraphModel dx="1965" dy="1285" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="786" dy="514" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -570,9 +570,6 @@
         </mxCell>
         <mxCell id="ZtOWhG-BDnfKD1dqVCP--29" value="User: emailAddress (unique)" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;" parent="1" vertex="1">
           <mxGeometry x="1340" y="617.13" width="170" height="20" as="geometry" />
-        </mxCell>
-        <mxCell id="ZtOWhG-BDnfKD1dqVCP--31" value="Use AddressID is auto-incremented and used as foreign key" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;" parent="1" vertex="1">
-          <mxGeometry x="942.5" y="980" width="340" height="20" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
