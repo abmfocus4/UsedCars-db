@@ -403,7 +403,8 @@ create table Appointment (
     active varchar(5) default 'True' check(active in ('False', 'True')),
     primary key (appointmentNumber, dealerEmail, customerEmail),
     foreign key (dealerEmail) references User(email),
-    foreign key (customerEmail) references User(email)
+    foreign key (customerEmail) references User(email),
+    foreign key (listingId) references Listing(listingId)
 );
 -- Car
 select 'Car' as '';
