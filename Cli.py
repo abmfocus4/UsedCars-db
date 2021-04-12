@@ -720,10 +720,10 @@ def login():
 
                 session = Session(engine, future=True)
                 statement = db.select(User).where(User.email == str(f_email))
-                results = session.execute(statement).one()
+                results = session.execute(statement).first()
                 session.close()
 
-                if (len(results) == 1):
+                if (results):
                     if (f_password != results.User.password):
                         print("Incorrect password.")
                         continue
