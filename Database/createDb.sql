@@ -497,7 +497,6 @@ set VIN = @col1,
     franchiseMake = @col21,
     isFleet = nullif(@col18, ''),
     isCab = nullif(@col30, ''),
-    isNew = nullif(@col33, ''),
     listingId = @col39;
 -- DepreciationFactors
 select 'DepreciationFactors' as '';
