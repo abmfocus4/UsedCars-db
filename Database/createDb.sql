@@ -417,7 +417,6 @@ create table Car (
     franchiseMake varchar(40),
     isFleet varchar(5) check(isFleet in ('False', 'True', null)),
     isCab varchar(5) check(isCab in ('False', 'True', null)),
-    isNew varchar(5) check(isNew in ('False', 'True', null)),
     listingId int not null,
     foreign key (listingId) references Listing(listingId),
     primary key (VIN)
