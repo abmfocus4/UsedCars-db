@@ -10,6 +10,8 @@ from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
+# Setup for the objects representing SQL relations
+
 class User(Base):
     __tablename__ = 'User'
 
@@ -151,6 +153,7 @@ config = {
     'database': 'Cars'
 }
 
+# global variables
 g_email = None
 g_userType = None
 g_firstName = None
@@ -227,6 +230,10 @@ connection_str = f'mysql+pymysql://{db_user}:{db_pwd}@{db_host}:{db_port}/{db_na
 engine = db.create_engine(connection_str)
 connection = engine.connect()
 
+# format input for insertion into the database
+# e.g. make sure floating point numbers have the
+# correct number of digits, strings aren't too
+# long, etc
 def format_for_db(user_input, input_type, v1=0, v2=0):
     if user_input is None or len(str(user_input)) == 0:
             return None
@@ -264,6 +271,10 @@ def format_for_db(user_input, input_type, v1=0, v2=0):
         except ValueError:
             return None
 
+# given either an existing relational object or an id
+# (conditionally a listingId or a VIN)
+# print out all relevant information pertaining to
+# the relation in question
 def print_listing(info_type, arg_id=0, arg_object=None):
     ret = False
     vin = 0
@@ -444,6 +455,7 @@ def print_listing(info_type, arg_id=0, arg_object=None):
 
     return ret
 
+# list a car for sale, given the proper relational objects
 def list_car(carEngine=None, fuelSpecs=None, wheelSystem=None, trimPackage=None, depreciationFactors=None, interior=None):
     session = Session(engine)
     if carEngine is not None:
@@ -461,6 +473,7 @@ def list_car(carEngine=None, fuelSpecs=None, wheelSystem=None, trimPackage=None,
     session.commit()
     session.close()
 
+# check to see if a user already exists
 def existing_user(email):
     session = Session(engine, future=True)
     statement = db.select(User).where(User.email == email)
@@ -471,6 +484,8 @@ def existing_user(email):
         return True
     return False
 
+# construct & return a search statement using the
+# filters and sorting criteria the user has selected
 def build_search(page):
     statement = db.select(Car, Listing).join(Listing).where(Listing.activeListing == "True")
 
@@ -528,6 +543,8 @@ def build_search(page):
 
     return statement.limit(10).offset((page - 1) * 10)
 
+# convert a string obtained from input() into a number
+# indicating the user's selection
 def parse(string, allow_back=True):
     try:
         #check if string is a number for menu
@@ -543,6 +560,8 @@ def parse(string, allow_back=True):
                 return -2
         return -1
 
+# specialized input function that accepts only
+# Y/y & N/n, returning boolean values
 def ynput(string):
     result = 0
     while True:
@@ -558,6 +577,9 @@ def list_options(options):
     for index, option in enumerate(options):
         print(str(index + 1) + ". " + option)
 
+# the universal function for presenting the user
+# with a list of options they can select by entering
+# a number
 def get_input(options):
     list_options(options)
     if len(options) == 0:
@@ -572,14 +594,17 @@ def get_input(options):
 def clear_nav():
     g_loc = []
 
+# navigate down a level
 def nav_down(level):
     g_loc.append(level)
     get_loc()
 
+# navigate up a level
 def nav_up():
     g_loc.pop()
     get_loc()
 
+# return the current location in the CLI
 def get_loc():
     location = ""
     for level in g_loc:
@@ -590,7 +615,7 @@ def get_loc():
 def active_filter(f):
     return f["active"]
 
-#navigate throught the app
+# main view to navigate the app
 def main():
     options = ["Search Listings", "View Appointments"]
 
@@ -621,7 +646,7 @@ def startup():
     login()
     main()
 
-#get the user to sign up or log into an account
+# get the user to sign up or log into an account
 def login():
     global g_email
     global g_userType
@@ -634,6 +659,7 @@ def login():
 
     while True:
         selection = get_input(options)
+        # signup flow
         if (selection == 1):
             g_email = input("Enter your email: ")
             check_email = re.search("^\S+@\S+\.\S+$", g_email)
@@ -687,6 +713,7 @@ def login():
             session.close()
 
             break
+        # login flow
         elif (selection == 2):
             while(True):
                 print("")
@@ -723,6 +750,7 @@ def login():
 
     nav_up()
 
+# create a new appointment, prompting the user for input
 def new_appointment(l_id):
     nav_down("new_appointment")
 
@@ -802,6 +830,8 @@ def new_appointment(l_id):
             
     nav_up()
 
+# display the user's appointments in truncated form, with the option
+# to display them in long form/access edit & cancel functionality
 def appointments():
     nav_down("appointments")
 
@@ -864,6 +894,8 @@ def appointments():
 
     nav_up()
 
+# detail view of the appointment, where the user can
+# edit or cancel an appointment
 def appointment_detail(aptNum, dealerEmail, userEmail):
     nav_down("appointment_detail")
 
@@ -915,6 +947,8 @@ def appointment_detail(aptNum, dealerEmail, userEmail):
 
     nav_up()
 
+# edit an appointment by selecting the specific
+# fields the user would like to modify
 def edit_appointment(aptNum, dealerEmail, userEmail):
     nav_down("edit_appointment")
 
@@ -969,20 +1003,21 @@ def edit_appointment(aptNum, dealerEmail, userEmail):
                     break
             else:
                 information = input("Please enter any extra information you'd like to attach to the appointment: ")
-        session = Session(engine, future=True)
-        statement = db.update(Appointment).where(
+        session = Session(engine)
+        statement = session.update(Appointment).filter_by(
             Appointment.appointmentNumber == aptNum and
             Appointment.dealerEmail == dealerEmail and
             Appointment.customerEmail == customerEmail
         ).values({
-            Appointment.information: information,
-            Appointment.appointmentDateTime: appointmentDateTime
+            "information": information,
+            "appointmentDateTime": appointmentDateTime
         })
-        session.execute(statement)
+        session.commit()
         session.close()
 
     nav_up()
 
+# cancel an appointment by setting its active property to False
 def remove_appointment(aptNum, dealerEmail, userEmail):
     session = Session(engine)
     session.query(Appointment).filter(
@@ -993,6 +1028,9 @@ def remove_appointment(aptNum, dealerEmail, userEmail):
     session.commit()
     session.close()
 
+# display a user's listings in truncated form,
+# with the option to view a listing in long form
+# and edit/delete a listing (also by setting its active field)
 def owned_listings():
     nav_down("owned_listings")
 
@@ -1037,7 +1075,10 @@ def owned_listings():
                 sys.exit()
 
     nav_up()
-        
+
+# take the user through the process to create
+# a new listing with engine, interior, etc 
+# being optional
 def new_listing():
     nav_down("new_listing")
     print("")
@@ -1219,6 +1260,8 @@ def new_listing():
     
     nav_up()
 
+# main search view, from which users can add, remove, and edit filters, 
+# as well as sorting and actually displaying results
 def search():
     nav_down("search")
     options = ["Add Filters", "View & Remove Filters", "Sort Results", "Display Results"]
@@ -1239,6 +1282,9 @@ def search():
 
     nav_up()
 
+# display the results of a search, using the
+# build_search feature to assemble the SQL statement
+# based on the active filters & sort criteria
 def display():
     nav_down("search_results")
 
@@ -1281,6 +1327,8 @@ def display():
         else:
             sys.exit()
 
+# view a listing in long form & make an appointment (customer)
+# or edit/remove it (dealer who owns the listing)
 def detail(l_id):
     nav_down("listing_detail")
     
@@ -1344,7 +1392,7 @@ def detail(l_id):
 
     nav_up()
     
-
+# remove a listing by setting its active property to False
 def removelisting(l_id):
     nav_down("remove_listing")
     print("")
@@ -1366,6 +1414,7 @@ def removelisting(l_id):
 
     nav_up()
 
+# Top level view for editing a listing
 def editlisting(l_id):
     nav_down("edit_listing")
     
@@ -1400,6 +1449,7 @@ def editlisting(l_id):
 
     nav_up()
 
+# Edit the Car and Listing relations
 def edit_basic(l_id):
     nav_down("edit_basic")
 
@@ -1480,6 +1530,7 @@ def edit_basic(l_id):
 
     nav_up()
 
+# Edit the trim relation, or add one if it doesn't exist
 def edit_trim(vin):
     nav_down("edit_trim")
 
@@ -1535,6 +1586,7 @@ def edit_trim(vin):
 
     nav_up()
 
+# Edit the engine relation, or add one if it doesn't exist
 def edit_engine(vin):
     nav_down("edit_engine")
 
@@ -1617,6 +1669,7 @@ def edit_engine(vin):
 
     nav_up()
 
+# Edit the interior relation, or add one if it doesn't exist
 def edit_interior(vin):
     nav_down("edit_interior")
 
@@ -1693,6 +1746,7 @@ def edit_interior(vin):
 
     nav_up()
 
+# Edit the fuel relation, or add one if it doesn't exist
 def edit_fuel(vin):
     nav_down("edit_fuel")
 
@@ -1769,6 +1823,7 @@ def edit_fuel(vin):
 
     nav_up()
 
+# Edit the wheelbase relation, or add one if it doesn't exist
 def edit_wheelbase(vin):
     nav_down("edit_wheelbase")
 
@@ -1833,6 +1888,7 @@ def edit_wheelbase(vin):
 
     nav_up()
 
+# Edit the depreciation relation, or add one if it doesn't exist
 def edit_depreciation(vin):
     nav_down("edit_depreciation")
 
@@ -1902,9 +1958,11 @@ def edit_depreciation(vin):
 
     nav_up()
 
+# Deactivate a filter (doesn't actually remove it,
+# just sets its active property to False)
 def removefilters():
     nav_down("remove_filters")
-    print("Select a filter to remove it")
+    print("Select a filter to deactivate it")
     while True:
         active_filters = filter(active_filter, g_filters)
         options = []
@@ -1931,6 +1989,9 @@ def removefilters():
 
     nav_up()
 
+# Edit or add a filter - same view for both,
+# breaking it down similar to Listings is
+# inefficient
 def editfilter(index):
     nav_down("edit_filter")
     f = g_filters[index]
@@ -1960,6 +2021,7 @@ def editfilter(index):
 
     nav_up()
 
+# Add filters (redirects to edit filter after selection)
 def addfilters():
     nav_down("add_filters")
     options = []
@@ -1975,6 +2037,7 @@ def addfilters():
         elif (selection == -1):
             sys.exit()
 
+# choose what kind of sorting should be active (only one at a time)
 def selectsort():
     nav_down("select_sort")
 
