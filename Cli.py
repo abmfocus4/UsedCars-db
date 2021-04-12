@@ -150,7 +150,9 @@ config = {
     'database': 'Cars'
 }
 
-g_user = None
+g_email = None
+g_userType = None
+g_firstName = None
 g_loc = []
 g_sorting = [
     {
@@ -229,13 +231,6 @@ g_filters = [
         "relationship": "",
         "value": "",
         "active": False
-    },
-    {
-        "name": "Listing Age",
-        "f_type": "range",
-        "relationship": "",
-        "value": "",
-        "active": False
     }
 ]
 
@@ -294,7 +289,7 @@ def print_listing(info_type, arg_id=0, arg_object=None):
 
     print("")
 
-    if info_type == "car" or info_type == "all":
+    if info_type == "car" or info_type == "list" or info_type == "all":
         dbCar = None
         if arg_object:
             dbCar = arg_object
@@ -307,7 +302,7 @@ def print_listing(info_type, arg_id=0, arg_object=None):
             if result:
                 dbCar = result.Car
 
-        if result:
+        if dbCar:
             print("VIN: " + str(dbCar.vin))
             print("Make: " + str(dbCar.franchiseMake))
             print("Model: " + str(dbCar.modelName))
@@ -319,7 +314,7 @@ def print_listing(info_type, arg_id=0, arg_object=None):
             vin = dbCar.vin
             ret = True
 
-    if info_type == "listing" or info_type == "all":
+    if info_type == "listing" or info_type == "list" or info_type == "all":
         dbListing = None
         if arg_object:
             dbListing = arg_object
@@ -507,13 +502,9 @@ def build_search(page):
         elif f['name'] == 'Model':
             column = Car.modelName
         elif f['name'] == 'Price':
-            column = Car.franchiseMake
-        elif f['name'] == 'New':
-            column = Car.franchiseMake
-        elif f['name'] == 'Dealer ZIP':
-            column = Car.franchiseMake
-        else:
             column = Listing.price
+        elif f['name'] == 'New':
+            column = Car.isNew
         
         if f['relationship'] == ">":
             statement = statement.where(column > parse(f['value']))
@@ -526,7 +517,7 @@ def build_search(page):
             elif f['f_type'] == "range":
                 val = parse(f['value'])
             elif f['f_type'] == "boolean":
-                val = parse(f['value']) == 1
+                val = "True" if f['value'] else "False"
             statement = statement.where(column == val)
         elif f['relationship'] == "!=":
             val = 0
@@ -534,8 +525,6 @@ def build_search(page):
                 val = f['value']
             elif f['f_type'] == "range":
                 val = parse(f['value'])
-            elif f['f_type'] == "boolean":
-                val = parse(f['value']) == 1
             statement = statement.where(column != val)
         elif f['relationship'] == "<=":
             statement = statement.where(column <= parse(f['value']))
@@ -548,7 +537,7 @@ def build_search(page):
             if (sort["name"] == "Price"):
                 order = Listing.price
             elif (sort["name"] == "Listing Age"):
-                order = Listing.daysOnMarket
+                order = Listing.listingDate
             elif (sort["name"] == New):
                 order = Car.isNew
             else:
@@ -569,7 +558,12 @@ def parse(string, allow_back=True):
         return int(string)
     except ValueError:
         if allow_back:
-            return 0 if string == "b" else -1
+            if string == 'b':
+                return 0
+            elif string == 'q':
+                return -1
+            else:
+                return -2
         return -1
 
 def ynput(string):
@@ -623,7 +617,7 @@ def active_filter(f):
 def main():
     options = ["Search Listings", "View Appointments"]
 
-    if (g_user.userType != "Customer"):
+    if (g_userType != "Customer"):
         options.extend(["Create Listing", "View Your Listings"])
 
     nav_down("main")
@@ -645,15 +639,16 @@ def main():
 #starting point of the cli
 def startup():
     print("")
-    # print("Welcome to Ottotradr: a used car sales platform that's definitely not affiliated with Auto Trader.")
-    # print("Navigate the application using the prompts, using 'q' to quit & 'b' to navigate back.")
-    edit_engine(3029487562345)
-    # login()
-    # main()
+    print("Welcome to Ottotradr: a used car sales platform that's definitely not affiliated with A*to Tr*der.")
+    print("Navigate the application using the prompts, using 'q' to quit & 'b' to navigate back.")
+    login()
+    main()
 
 #get the user to sign up or log into an account
 def login():
-    global g_user
+    global g_email
+    global g_userType
+    global g_firstName
     options = ["Sign Up", "Log In"]
     pw1 = "1"
     pw2 = "2"
@@ -682,9 +677,9 @@ def login():
                 print("Invalid selection.")
                 userType = input("Are you a Customer (1) or a Dealer (2): ")
 
-            userType = "Customer" if userType == 1 else "Dealer"
+            g_userType = "Customer" if userType == 1 else "Dealer"
 
-            g_firstname = input("Enter your first name: ")
+            g_firstName = input("Enter your first name: ")
             g_lastname = input("Enter your last name: ")
             while (pw1 != pw2):
                 password_check = False
@@ -701,13 +696,13 @@ def login():
 
             print("")
             print("Email: " + g_email)
-            print("Name: " + g_firstname + " " + g_lastname)
+            print("Name: " + g_firstName + " " + g_lastname)
             print("Account type: " + userType)
             confirm = input("Type 'confirm' to create your account, or anything else to return to the login screen: ")
             if confirm.lower() != "confirm":
                 continue
 
-            g_user = User(email=g_email, firstName=g_firstname, lastName=g_lastname, password=g_password, userType=userType)
+            g_user = User(email=g_email, firstName=g_firstName, lastName=g_lastname, password=g_password, userType=userType)
 
             session = Session(engine)
             session.add(g_user)
@@ -725,15 +720,17 @@ def login():
 
                 session = Session(engine, future=True)
                 statement = db.select(User).where(User.email == str(f_email))
-                results = session.execute(statement).all()
+                results = session.execute(statement).one()
                 session.close()
 
                 if (len(results) == 1):
-                    if (f_password != results[0].User.password):
+                    if (f_password != results.User.password):
                         print("Incorrect password.")
                         continue
                     else:
-                        g_user = results[0].User
+                        g_userType = results.User.userType
+                        g_email = results.User.email
+                        g_firstName = results.User.firstName
                         break
                 else:
                     print("User not found.")
@@ -745,7 +742,7 @@ def login():
         elif (selection == -1):
             sys.exit()
     
-    print("Login successful! Welcome to Ottotradr,", g_user.firstName)
+    print("Login successful! Welcome to Ottotradr,", g_firstName)
 
     nav_up()
 
@@ -803,7 +800,7 @@ def new_appointment(l_id):
     information = input("Please enter any extra information you'd like to attach to the appointment: ")
 
     session = Session(engine, future=True)
-    statement = db.select(Appointment).where(Appointment.dealerEmail == dealerEmail).where(Appointment.customerEmail == g_user.email)
+    statement = db.select(Appointment).where(Appointment.dealerEmail == dealerEmail).where(Appointment.customerEmail == g_email)
     results = session.execute(statement).all()
     session.close()
 
@@ -812,7 +809,7 @@ def new_appointment(l_id):
     appointment = Appointment(
         appointmentNumber=format_for_db(appointmentNumber, "integer"),
         dealerEmail=format_for_db(dealerEmail, "string", 125),
-        customerEmail=format_for_db(g_user.email, "string", 125),
+        customerEmail=format_for_db(g_email, "string", 125),
         appointmentDateTime=appointmentDateTime,
         information=format_for_db(information, "string", 400),
         active=format_for_db(True, "boolean")
@@ -839,10 +836,10 @@ def appointments():
     session = Session(engine, future=True)
     statement = 0
 
-    if (g_user.userType == "Dealer"):
-        statement = db.select(Appointment, User).join(User, Appointment.customerEmail == User.email).where(Appointment.dealerEmail == g_user.email)
-    elif (g_user.userType == "Customer"):
-        statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email).where(Appointment.customerEmail == g_user.email)
+    if (g_userType == "Dealer"):
+        statement = db.select(Appointment, User).join(User, Appointment.customerEmail == User.email).where(Appointment.dealerEmail == g_email)
+    elif (g_userType == "Customer"):
+        statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email).where(Appointment.customerEmail == g_email)
     else:
         statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
     
@@ -861,7 +858,7 @@ def appointments():
             options = []
             option_ids = []
 
-            if (g_user.userType != "Admin"):
+            if (g_userType != "Admin"):
                 for appointment, user in results:
                     option_ids.append([appointment.appointmentNumber, appointment.dealerEmail, appointment.customerEmail])
                     options.append("Appointment with {name:s} on {date:s} at {time:s}".format(
@@ -899,9 +896,9 @@ def appointment_detail(aptNum, dealerEmail, userEmail):
         session = Session(engine, future=True)
         statement = 0
 
-        if (g_user.userType == "Customer"):
+        if (g_userType == "Customer"):
             statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email)
-        elif (g_user.userType == "Dealer"):
+        elif (g_userType == "Dealer"):
             statement = db.select(Appointment, User).join(User, Appointment.userEmail == User.email)
         else:
             statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
@@ -910,10 +907,10 @@ def appointment_detail(aptNum, dealerEmail, userEmail):
         result = session.execute(statement).first()
         session.close()
 
-        if (g_user.userType == "Customer"):
+        if (g_userType == "Customer"):
             print("Dealer: " + result.User.firstName + " " + result.User.lastName)
             print("Dealer email: " + result.Appointment.dealerEmail)
-        elif (g_user.userType == "Dealer"):
+        elif (g_userType == "Dealer"):
             print("Customer: " + result.User.firstName + " " + result.User.lastName)
             print("Customer email: " + result.Appointment.customerEmail)
         else:
@@ -926,7 +923,7 @@ def appointment_detail(aptNum, dealerEmail, userEmail):
         
         options = ["Edit Appointment", "Cancel Appointment"]
         selection = get_input(options)
-        if selection > 0 and seletion < len(options):
+        if selection > 0 and selection < len(options):
             if selection == 1:
                 edit_appointment(aptNum, dealerEmail, userEmail)
             else:
@@ -950,9 +947,9 @@ def edit_appointment(aptNum, dealerEmail, userEmail):
         session = Session(engine, future=True)
         statement = 0
 
-        if (g_user.userType == "Customer"):
+        if (g_userType == "Customer"):
             statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email)
-        elif (g_user.userType == "Dealer"):
+        elif (g_userType == "Dealer"):
             statement = db.select(Appointment, User).join(User, Appointment.userEmail == User.email)
         else:
             statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
@@ -1027,8 +1024,8 @@ def owned_listings():
         print("")
         sys.stdout.write("\rRetrieving owned listings (this may take some time)...")
         session = Session(engine, future=True)
-        statement = db.select(Car, Listing).join(Listing).where(Listing.dealerEmail == str(g_user.email))
-        if g_user.userType != "Admin":
+        statement = db.select(Car, Listing).join(Listing).where(Listing.dealerEmail == str(g_email))
+        if g_userType != "Admin":
             statement = statement.where(Listing.activeListing == "True")
         statement = statement.limit(10).offset((page - 1) * 10)
         results = session.execute(statement).all()
@@ -1203,7 +1200,7 @@ def new_listing():
         daysOnMarket=0,
         description=format_for_db(listingDescription, "string", 1000),
         price=format_for_db(price, "float", 9, 2),
-        dealerEmail=format_for_db(g_user.email, "string", 125),
+        dealerEmail=format_for_db(g_email, "string", 125),
         activeListing=format_for_db(True, "boolean")
     )
 
@@ -1213,7 +1210,6 @@ def new_listing():
         session = Session(engine)
         session.add(listing)
         session.commit()
-        session.close()
 
         car = Car(
             vin=format_for_db(vin, "string", 17),
@@ -1227,7 +1223,6 @@ def new_listing():
             listingId=format_for_db(listing.listingId, "integer")
         )
 
-        session = Session(engine)
         session.add(car)
         session.commit()
         session.close()
@@ -1305,7 +1300,7 @@ def display():
         elif (selection == 0):
             nav_up()
             return
-        elif (selection == -1):
+        else:
             sys.exit()
 
 def detail(l_id):
@@ -1319,17 +1314,21 @@ def detail(l_id):
     print_listing("all", l_id)
     options = []
 
+    owned = False
+    admin = False
+
     while True:
-        if (g_user.userType == "Dealer"):
-            if result.Listing.dealerEmail == g_user.email:
+        if (g_userType == "Dealer"):
+            if result.Listing.dealerEmail == g_email:
                 options = ["Edit Listing", "Remove Listing"]
                 owned = True
-        elif (g_user.userType == "Customer"):
+        elif (g_userType == "Customer"):
             options = ["Make An Appointment"]
         else:
             options = ["Make An Appointment", "Edit Listing", "Remove Listing"]
+            admin = True
         selection = get_input(options)
-        if (owned):
+        if owned and not admin:
             if (selection == 1):
                 editlisting(l_id)
             elif (selection == 2):
@@ -1341,16 +1340,32 @@ def detail(l_id):
                 return
             elif (selection == -1):
                 sys.exit()
-        else:
-            if (selection == 1):
+        elif not admin:
+            if selection == 1:
                 new_appointment(result.Listing.listingId)
                 nav_up()
                 return
             elif selection == 0:
                 nav_up()
                 return
-            elif selection == -1:
+            else:
                 sys.exit()
+        else:
+            if selection == 1:
+                new_appointment(result.Listing.listingId)
+                break
+            elif selection == 2:
+                editlisting(l_id)
+            elif selection == 3:
+                removelisting(l_id)
+                break
+            elif selection == 0:
+                break
+            else:
+                sys.exit()
+
+    nav_up()
+    
 
 def removelisting(l_id):
     nav_down("remove_listing")
@@ -1384,7 +1399,7 @@ def editlisting(l_id):
     vin = result.Car.vin
     
     while True:
-        options = ["Basic Options", "Engine", "Trim", "Interior", "Fuel", "Wheel System"]
+        options = ["Basic Options", "Engine", "Trim", "Interior", "Fuel", "Wheel System", "Depreciation Factors"]
         selection = get_input(options)
         if selection == 1:
             edit_basic(l_id)
@@ -1398,6 +1413,8 @@ def editlisting(l_id):
             edit_fuel(vin)
         elif selection == 6:
             edit_wheelbase(vin)
+        elif selection == 7:
+            edit_depreciation(vin)
         elif selection == 0:
             break
         elif selection == -1:
@@ -1407,6 +1424,83 @@ def editlisting(l_id):
 
 def edit_basic(l_id):
     nav_down("edit_basic")
+
+    session = Session(engine)
+    statement = db.select(Car, Listing).join(Listing).where(Listing.listingId == l_id)
+    result = session.execute(statement).first()
+    session.close()
+    
+    car = None
+    listing = None
+
+    if result:
+        car = result.Car
+        listing = result.Listing
+
+    while True:
+        if listing and car:
+            options = ["Body Type", "Height", "Year", "Model", "Make", "New", "Cab", "Price", "Description", "View Basic Information", "Save & Go Back"]
+            selection = get_input(options)
+            if selection > 0 and selection < len(options) - 1:
+                if selection == 1:
+                    value = input("Enter body type: ")
+                    car.bodyType = format_for_db(value, "string", 40)
+                elif selection == 2:
+                    value = input("Enter height: ")
+                    car.height = format_for_db(value, "float", 4, 1)
+                elif selection == 3:
+                    value = input("Enter year: ")
+                    car.year = format_for_db(value, "integer")
+                elif selection == 4:
+                    value = input("Enter model: ")
+                    car.modelName = format_for_db(value, "string", 40)
+                elif selection == 5:
+                    value = input("Enter make: ")
+                    car.franchiseMake = format_for_db(value, "string", 40)
+                elif selection == 6:
+                    value = ynput("Is this vehicle new (y/n): ")
+                    car.isNew = format_for_db(value, "boolean")
+                elif selection == 7:
+                    value = input("Was this vehicle a cab (y/n): ")
+                    car.isCab = format_for_db(value, "boolean")
+                elif selection == 8:
+                    value = input("Enter desired list price: ")
+                    listing.price = format_for_db(value, "float", 9, 2)
+                else:
+                    value = input("Enter listing description: ")
+                    listing.description = format_for_db(value, "string", 1000)
+            elif selection == len(options) - 1:
+                print_listing("listing", arg_object=listing)
+                print_listing("car", arg_object=car)
+            elif selection == len(options):
+                session = Session(engine)
+                session.query(Listing).filter(Listing.listingId == listing.listingId).update({
+                    "price": listing.price,
+                    "description": listing.description
+                })
+                session.query(Car).filter(Car.vin == car.vin).update({
+                    "bodyType": car.bodyType,
+                    "height": car.height,
+                    "year": car.year,
+                    "modelName": car.modelName,
+                    "franchiseMake": car.franchiseMake,
+                    "isNew": car.isNew,
+                    "isCab": car.isCab,
+                })
+                session.commit()
+                session.close()
+                print("")
+                print("Basic information saved.")
+                break
+            elif selection == 0:
+                break
+            else:
+                sys.exit()
+        else:
+            print("If you're seeing this, this application is really broken. My bad, hope there isn't a prof or a TA reading this!")
+            break
+
+    nav_up()
 
 def edit_trim(vin):
     nav_down("edit_trim")
@@ -1423,7 +1517,7 @@ def edit_trim(vin):
 
     while True:
         if trimPackage:
-            options = ["Trim Name", "View Trim Package", "Save"]
+            options = ["Trim Name", "View Trim Package", "Save & Go Back"]
             selection = get_input(options)
             if selection > 0 and selection < len(options) - 1:
                 if selection == 1:
@@ -1437,13 +1531,14 @@ def edit_trim(vin):
                 session.commit()
                 session.close()
                 print("")
-                print("Trim package settings saved.")
+                print("Trim package saved.")
+                break
             elif selection == 0:
                 break
             else:
                 sys.exit()
         else:
-            new_trim = ynput("Trim package not found. Would you like to add one (y/n)?:")
+            new_trim = ynput("Trim package not found. Would you like to add one (y/n)?: ")
             if new_trim:
                 print("")
                 trimName = input("Enter vehicle trim package identifier: ")
@@ -1456,6 +1551,7 @@ def edit_trim(vin):
                 session.commit()
                 session.close()
                 print("Trim package added!")
+                break
             else:
                 break
 
@@ -1476,7 +1572,7 @@ def edit_engine(vin):
 
     while True:
         if carEngine:
-            options = ["Engine Cylinders", "Engine Displacement", "Engine Type", "Horsepower", "Transmission", "View Engine", "Save"]
+            options = ["Engine Cylinders", "Engine Displacement", "Engine Type", "Horsepower", "Transmission", "View Engine", "Save & Go Back"]
             selection = get_input(options)
             if selection > 0 and selection < len(options) - 1:
                 if selection == 1:
@@ -1509,12 +1605,13 @@ def edit_engine(vin):
                 session.close()
                 print("")
                 print("Engine information saved.")
+                break
             elif selection == 0:
                 break
             else:
                 sys.exit()
         else:
-            new_engine = ynput("Engine information not found. Would you like to add it (y/n)?:")
+            new_engine = ynput("Engine information not found. Would you like to add it (y/n)?: ")
             if new_engine:
                 print("")
                 print("If you don't know the answer to any field, or it isn't applicable, leave it blank.")
@@ -1536,6 +1633,7 @@ def edit_engine(vin):
                 session.commit()
                 session.close()
                 print("Engine information added!")
+                break
             else:
                 break
 
@@ -1552,11 +1650,11 @@ def edit_interior(vin):
     interior = None
 
     if result:
-        interior = result.interior
+        interior = result.Interior
 
     while True:
         if interior:
-            options = ["Back Legroom", "Front Legroom", "Interior Color", "Maximum Seating", "View Interior", "Save"]
+            options = ["Back Legroom", "Front Legroom", "Interior Color", "Maximum Seating", "View Interior", "Save & Go Back"]
             selection = get_input(options)
             if selection > 0 and selection < len(options) - 1:
                 if selection == 1:
@@ -1585,12 +1683,13 @@ def edit_interior(vin):
                 session.close()
                 print("")
                 print("Interior information saved.")
+                break
             elif selection == 0:
                 break
             else:
                 sys.exit()
         else:
-            new_interior = ynput("Interior information not found. Would you like to add it (y/n)?:")
+            new_interior = ynput("Interior information not found. Would you like to add it (y/n)?: ")
             if new_interior:
                 print("")
                 print("If you don't know the answer to any field, or it isn't applicable, leave it blank.")
@@ -1610,6 +1709,7 @@ def edit_interior(vin):
                 session.commit()
                 session.close()
                 print("Interior information added!")
+                break
             else:
                 break
 
@@ -1623,6 +1723,72 @@ def edit_fuel(vin):
     result = session.execute(statement).first()
     session.close()
 
+    fuelSpecs = None
+
+    if result:
+        fuelSpecs = result.FuelSpecs
+
+    while True:
+        if fuelSpecs:
+            options = ["Fuel Tank Volume", "Fuel Type", "Highway Fuel Economy", "City Fuel Economy", "View Fuel Specs", "Save & Go Back"]
+            selection = get_input(options)
+            if selection > 0 and selection < len(options) - 1:
+                if selection == 1:
+                    value = input("Enter fuel tank volume (L): ")
+                    fuelSpecs.fuelTankVolume = format_for_db(value, "float", 4, 1)
+                elif selection == 2:
+                    value = input("Enter fuel type: ")
+                    fuelSpecs.fuelType = format_for_db(value, "string", 40)
+                elif selection == 3:
+                    value = input("Enter highway fuel economy (mpl): ")
+                    fuelSpecs.highwayFuelEconomy = format_for_db(value, "float", 5, 2)
+                else:
+                    value = input("Enter city fuel economy (mpl): ")
+                    fuelSpecs.cityFuelEconomy = format_for_db(value, "float", 5, 2)
+            elif selection == len(options) - 1:
+                print_listing("fuel", arg_object=fuelSpecs)
+            elif selection == len(options):
+                session = Session(engine)
+                session.query(FuelSpecs).filter(FuelSpecs.vin == vin).update({
+                    "fuelTankVolume": fuelSpecs.fuelTankVolume,
+                    "fuelType": fuelSpecs.fuelType,
+                    "highwayFuelEconomy": fuelSpecs.highwayFuelEconomy,
+                    "cityFuelEconomy": fuelSpecs.cityFuelEconomy
+                })
+                session.commit()
+                session.close()
+                print("")
+                print("Fuel specifications saved.")
+                break
+            elif selection == 0:
+                break
+            else:
+                sys.exit()
+        else:
+            new_interior = ynput("Fuel specifications not found. Would you like to add them (y/n)?: ")
+            if new_interior:
+                print("")
+                print("If you don't know the answer to any field, or it isn't applicable, leave it blank.")
+                fuelTankVolume = input("Enter fuel tank volume (l): ")
+                fuelType = input("Enter fuel type: ")
+                cityFuelEconomy = input("Enter city fuel economy (kpl): ")
+                highwayFuelEconomy = input("Enter highway fuel economy (kpl): ")
+                fuelSpecs = FuelSpecs(
+                    vin=format_for_db(vin, "string", 17),
+                    fuelTankVolume=format_for_db(fuelTankVolume, "float", 4, 1),
+                    fuelType=format_for_db(fuelType, "string", 40),
+                    cityFuelEconomy=format_for_db(cityFuelEconomy, "float", 5, 2),
+                    highwayFuelEconomy=format_for_db(highwayFuelEconomy, "float", 5, 2)
+                )
+                session = Session(engine)
+                session.add(fuelSpecs)
+                session.commit()
+                session.close()
+                print("Fuel specifications added!")
+                break
+            else:
+                break
+
     nav_up()
 
 def edit_wheelbase(vin):
@@ -1632,6 +1798,129 @@ def edit_wheelbase(vin):
     statement = db.select(WheelSystem).where(WheelSystem.vin == vin)
     result = session.execute(statement).first()
     session.close()
+
+    wheelSystem = None
+
+    if result:
+        wheelSystem = result.WheelSystem
+
+    while True:
+        if fuelSpecs:
+            options = ["Wheel System Designation", "Wheelbase", "View Wheel System", "Save & Go Back"]
+            selection = get_input(options)
+            if selection > 0 and selection < len(options) - 1:
+                if selection == 1:
+                    value = input("Enter wheel system designation (3 letter acronym): ")
+                    wheelSystem.wheelSystem = format_for_db(value, "string", 3)
+                else:
+                    value = input("Enter wheelbase width (cm): ")
+                    wheelSystem.wheelbase = format_for_db(value, "float", 4, 1)
+            elif selection == len(options) - 1:
+                print_listing("wheel", arg_object=wheelSystem)
+            elif selection == len(options):
+                session = Session(engine)
+                session.query(FuelSpecs).filter(FuelSpecs.vin == vin).update({
+                    "wheelSystem": wheelSystem.wheelSystem,
+                    "wheelbase": wheelSystem.wheelbase
+                })
+                session.commit()
+                session.close()
+                print("")
+                print("Wheel system saved.")
+                break
+            elif selection == 0:
+                break
+            else:
+                sys.exit()
+        else:
+            new_interior = ynput("Wheel system not found. Would you like to add one (y/n)?: ")
+            if new_interior:
+                print("")
+                print("If you don't know the answer to any field, or it isn't applicable, leave it blank.")
+                wheelSystemDesc = input("Enter vehicle wheel system (3 letter designation): ")
+                wheelbase = input("Enter vehicle wheelbase width (cm): ")
+                wheelSystem = WheelSystem(
+                    vin=format_for_db(vin, "string", 17),
+                    wheelSystem=format_for_db(wheelSystemDesc, "string", 3),
+                    wheelbase=format_for_db(wheelbase, "float", 4, 1)
+                )
+                session = Session(engine)
+                session.add(wheelSystem)
+                session.commit()
+                session.close()
+                print("Wheel system added!")
+                break
+            else:
+                break
+
+    nav_up()
+
+def edit_depreciation(vin):
+    nav_down("edit_depreciation")
+
+    session = Session(engine, future=True)
+    statement = db.select(DepreciationFactors).where(DepreciationFactors.vin == vin)
+    result = session.execute(statement).first()
+    session.close()
+
+    depreciationFactors = None
+
+    if result:
+        depreciationFactors = result.DepreciationFactors
+
+    while True:
+        if depreciationFactors:
+            options = ["Frame Damage", "Accidents", "Salvage", "View Wheel System", "Save & Go Back"]
+            selection = get_input(options)
+            if selection > 0 and selection < len(options) - 1:
+                if selection == 1:
+                    value = ynput("Is the frame damaged (y/n): ")
+                    depreciationFactors.frameDamaged = format_for_db(value, "boolean")
+                elif selection == 2:
+                    value = ynput("Has the vehicle been in any accidents (y/n): ")
+                    depreciationFactors.hasAccidents = format_for_db(value, "string", 3)
+                else:
+                    value = ynput("Is this vehicle salvage (y/n): ")
+                    depreciationFactors.salvage = format_for_db(value, "float", 4, 1)
+            elif selection == len(options) - 1:
+                print_listing("wheel", arg_object=depreciationFactors)
+            elif selection == len(options):
+                session = Session(engine)
+                session.query(DepreciationFactors).filter(DepreciationFactors.vin == vin).update({
+                    "frameDamaged": depreciationFactors.frameDamaged,
+                    "hasAccidents": depreciationFactors.hasAccidents,
+                    "salvage": depreciationFactors.salvage
+                })
+                session.commit()
+                session.close()
+                print("")
+                print("Depreciation factors saved.")
+                break
+            elif selection == 0:
+                break
+            else:
+                sys.exit()
+        else:
+            new_interior = ynput("Depreciation factors not found. Would you like to add them (y/n)?: ")
+            if new_interior:
+                print("")
+                frameDamaged = ynput("Is the vehicle's frame damaged (y/n): ")
+                hasAccidents = ynput("Has this vehicle been involved in any accidents (y/n): ")
+                salvage = ynput("Is this vehicle salvage (y/n): ")
+                depreciationFactors = DepreciationFactors(
+                    vin=format_for_db(vin, "string", 17),
+                    frameDamaged=format_for_db(frameDamaged, "boolean"),
+                    hasAccidents=format_for_db(hasAccidents, "boolean"),
+                    salvage=format_for_db(salvage, "boolean")
+                )
+                session = Session(engine)
+                session.add(depreciationFactors)
+                session.commit()
+                session.close()
+                print("Depreciation factors added!")
+                break
+            else:
+                break
 
     nav_up()
 
@@ -1644,7 +1933,7 @@ def removefilters():
         option_names = []
         for f in active_filters:
             option_names.append(f["name"])
-            options.append(f["name"] + " " + f["relationship"] + " " + f["value"])
+            options.append(f["name"] + " " + f["relationship"] + " " + str(f["value"]))
 
         if len(options) == 0:
             print("No active filters; returning to search.")
@@ -1654,7 +1943,7 @@ def removefilters():
         selection = get_input(options)
         if selection > 0 and selection <= len(options):
             for f in g_filters:
-                if (f["name"] == option_names[selection - 1]["name"]):
+                if (f["name"] == option_names[selection - 1]):
                     f["active"] = 0
                     break
         elif selection == 0:
@@ -1668,22 +1957,28 @@ def editfilter(index):
     nav_down("edit_filter")
     f = g_filters[index]
     prompt1 = "Enter one of "
-    prompt2 = "Select a value for this filter (" + f["name"] + "): "
-    if (f["f_type"] == "equality"):
-        prompt1 += "'=', '!='"
-    elif (f["f_type"] == "range"):
+    prompt2 = "Select a value for this filter: "
+    if (f["f_type"] == "range"):
         prompt1 += "'>', '>=', '=', '!=', '<', '<='"
+    elif f['f_type'] == 'equality':
+        prompt1 += "'=', '!='"
     else:
-        prompt1 += "'1', '0'"
+        prompt2 = "Select a value for this filter (1/0 for true/false): "
     
     prompt1 += " for the " + f["name"] + " filter operator: "
 
-    rel = input(prompt1)
+    if f['f_type'] != 'boolean':
+        rel = input(prompt1)
+    else:
+        rel = '='
     val = input(prompt2)
 
     f["active"] = 1
     f["relationship"] = rel
     f["value"] = val
+
+    if f["f_type"] == "boolean":
+        f["value"] = True if val == "1" else False
 
     nav_up()
 
