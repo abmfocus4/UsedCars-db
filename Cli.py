@@ -899,7 +899,7 @@ def appointment_detail(aptNum, dealerEmail, userEmail):
         if (g_userType == "Customer"):
             statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email)
         elif (g_userType == "Dealer"):
-            statement = db.select(Appointment, User).join(User, Appointment.userEmail == User.email)
+            statement = db.select(Appointment, User).join(User, Appointment.customerEmail == User.email)
         else:
             statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
 
