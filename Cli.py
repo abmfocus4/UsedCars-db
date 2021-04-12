@@ -140,6 +140,7 @@ class Appointment(Base):
     appointmentDateTime = db.Column('appointmentDateTime', db.DateTime, nullable=False)
     information = db.Column('information', db.String(400), nullable=True)
     active = db.Column('active', db.String(5), nullable=True)
+    listingId = db.Column('listingId', db.Integer, db.ForeignKey("Listing.listingId"), nullable=False)
 
 # specify database configurations
 config = {
@@ -812,7 +813,8 @@ def new_appointment(l_id):
         customerEmail=format_for_db(g_email, "string", 125),
         appointmentDateTime=appointmentDateTime,
         information=format_for_db(information, "string", 400),
-        active=format_for_db(True, "boolean")
+        active=format_for_db(True, "boolean"),
+        listingId=format_for_db(l_id, "integer")
     )
 
     session = Session(engine)
