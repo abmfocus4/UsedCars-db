@@ -1,7 +1,7 @@
 -- Clean dB
 drop table if exists PhoneNumber;
-drop table if exists Address1;
-drop table if exists Address2;
+drop table if exists Address;
+drop table if exists Coordinates;
 drop table if exists DealerDetails;
 drop table if exists TrimPackage;
 drop table if exists Interior;
@@ -151,16 +151,16 @@ set listingId = @col39,
     price = @col49;
 update Listing
 set activeListing = 'False';
--- Address1
-select 'Address1' as '';
-create table Address1 (
+-- Address
+select 'Address' as '';
+create table Address (
     listingId int not null,
     zip varchar(32),
     city varchar(125),
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
 );
-load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Address1 fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
+load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Address fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
     @col3,
@@ -231,16 +231,16 @@ load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into t
 set listingId = @col39,
     zip = @col12,
     city = @col8;
--- Address2
-select 'Address2' as '';
-create table Address2 (
+-- Coordinates
+select 'Coordinates' as '';
+create table Coordinates (
     listingId int not null,
     latitude decimal(6, 4) not null,
     longitude decimal(7, 4) not null,
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
 );
-load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Address2 fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
+load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Coordinates fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
     @col3,
