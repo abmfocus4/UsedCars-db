@@ -167,16 +167,6 @@ g_sorting = [
         "active": False
     },
     {
-        "name": "Listing Age",
-        "type": "standard",
-        "active": False
-    },
-    {
-        "name": "Listing Age",
-        "type": "inverted",
-        "active": False
-    },
-    {
         "name": "Year",
         "type": "standard",
         "active": False
@@ -527,8 +517,6 @@ def build_search(page):
         if (sort["active"]):
             if (sort["name"] == "Price"):
                 order = Listing.price
-            elif (sort["name"] == "Listing Age"):
-                order = Listing.listingDate
             else:
                 order = Car.year
 
