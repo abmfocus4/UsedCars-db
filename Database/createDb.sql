@@ -401,7 +401,7 @@ create table Appointment (
     appointmentDateTime datetime not null,
     information varchar(400),
     active varchar(5) default 'True' check(active in ('False', 'True')),
-    primary key (appointmentNumber, dealerEmail, customerEmail),
+    primary key (appointmentNumber, dealerEmail, customerEmail, listingId),
     foreign key (dealerEmail) references User(email),
     foreign key (customerEmail) references User(email),
     foreign key (listingId) references Listing(listingId)
