@@ -12,9 +12,12 @@ drop table if exists DepreciationFactors;
 drop table if exists CarOwners;
 drop table if exists User;
 drop table if exists Car;
-drop table if exists Listing;
-drop table if exists Appointment;
-
+drop view if exists Listing;
+drop table if exists ActiveListing;
+drop table if exists InactiveListing;
+drop view if exists Appointment;
+drop table if exists ActiveAppointment;
+drop table if exists InactiveAppointment;
 -- Clean outfile
 \! rm -f cars_outfile.txt 
 tee cars_outfile.txt;
@@ -60,17 +63,16 @@ create table PhoneNumber (
     primary key(userEmail, phoneNumber),
     foreign key (userEmail) references User(email)
 );
--- Listing
-select 'Listing' as '';
-create table Listing (
-    listingId int auto_increment,
+-- InactiveListing
+select 'InactiveListing' as '';
+create table InactiveListing (
+    listingId int not null,
     listingDate date not null,
     daysOnMarket int,
     description text,
     mainPictureURL varchar(400),
     majorOptions text,
     price decimal(9, 2) not null,
-    activeListing varchar(5) default 'True' check(activeListing in ('False', 'True')),
     dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
     primary key (listingId)
 );
@@ -149,8 +151,45 @@ set listingId = @col39,
     mainPictureURL = @col41,
     majorOptions = @col42,
     price = @col49;
-update Listing
-set activeListing = 'False';
+-- ActiveListing
+select 'ActiveListing' as '';
+create table ActiveListing (
+    listingId int not null auto_increment,
+    listingDate date not null,
+    daysOnMarket int,
+    description text,
+    mainPictureURL varchar(400),
+    majorOptions text,
+    price decimal(9, 2) not null,
+    dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
+    primary key (listingId)
+);
+alter table ActiveListing auto_increment = 300000000;
+-- Listing
+select 'Listing' as '';
+create view Listing as (
+    select listingId,
+        listingDate,
+        daysOnMarket,
+        description,
+        mainPictureURL,
+        majorOptions,
+        price,
+        dealerEmail
+    from InactiveListing
+)
+union
+(
+    select listingId,
+        listingDate,
+        daysOnMarket,
+        description,
+        mainPictureURL,
+        majorOptions,
+        price,
+        dealerEmail
+    from ActiveListing
+);
 -- Address
 select 'Address' as '';
 create table Address (
@@ -391,20 +430,62 @@ load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into t
 set listingId = @col39,
     franchiseDealer = @col20,
     sellerRating = nullif(@col52, '');
--- Appointment
-select 'Appointment' as '';
-create table Appointment (
+-- InactiveAppointment
+select 'InactiveAppointment' as '';
+create table InactiveAppointment (
     appointmentNumber int not null,
     listingId int not null,
     dealerEmail varchar(125) not null,
     customerEmail varchar(125) not null,
     appointmentDateTime datetime not null,
     information varchar(400),
-    active varchar(5) default 'True' check(active in ('False', 'True')),
-    primary key (appointmentNumber, dealerEmail, customerEmail, listingId),
+    primary key (
+        appointmentNumber,
+        dealerEmail,
+        customerEmail,
+        listingId
+    ),
     foreign key (dealerEmail) references User(email),
     foreign key (customerEmail) references User(email),
     foreign key (listingId) references Listing(listingId)
+);
+-- ActiveAppointment
+select 'ActiveAppointment' as '';
+create table ActiveAppointment (
+    appointmentNumber int not null,
+    listingId int not null,
+    dealerEmail varchar(125) not null,
+    customerEmail varchar(125) not null,
+    appointmentDateTime datetime not null,
+    information varchar(400),
+    primary key (
+        appointmentNumber,
+        dealerEmail,
+        customerEmail,
+        listingId
+    ),
+    foreign key (dealerEmail) references User(email),
+    foreign key (customerEmail) references User(email),
+    foreign key (listingId) references Listing(listingId)
+);
+-- Appointment view
+select 'Appointment' as '';
+create view Appointment as (
+    select appointmentNumber,
+        listingId,
+        dealerEmail,
+        customerEmail,
+        appointmentDateTime
+    from ActiveAppointment
+)
+union
+(
+    select appointmentNumber,
+        listingId,
+        dealerEmail,
+        customerEmail,
+        appointmentDateTime
+    from InactiveAppointment
 );
 -- Car
 select 'Car' as '';
