@@ -55,6 +55,7 @@ values (
         'Pass123!@#',
         'Admin'
     );
+create index idx_EP on User(email, password);
 -- PhoneNumber
 select 'PhoneNumber' as '';
 create table PhoneNumber (
@@ -76,6 +77,9 @@ create table InactiveListing (
     dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
     primary key (listingId)
 );
+create index idx_dealerEmail on InactiveListing(dealerEmail);
+create index idx_price on InactiveListing(price);
+create index_idx_daysOnMarket on InactiveListing(daysOnMarket);
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Listing fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
@@ -165,6 +169,9 @@ create table ActiveListing (
     primary key (listingId)
 );
 alter table ActiveListing auto_increment = 300000000;
+create index idx_dealerEmail on ActiveListing(dealerEmail);
+create index idx_price on ActiveListing(price);
+create index_idx_daysOnMarket on ActiveListing(daysOnMarket);
 -- Listing
 select 'Listing' as '';
 create view Listing as (
@@ -199,6 +206,7 @@ create table Address (
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
 );
+create index idx_ZC on Address(zip, city);
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Address fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
@@ -279,6 +287,7 @@ create table Coordinates (
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
 );
+create index idx_LL on Coordinates(latitude, longitude);
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Coordinates fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
@@ -359,6 +368,7 @@ create table DealerDetails (
     primary key (listingId),
     foreign key (listingId) references Listing(listingId)
 );
+create index idx_sellerRating on DealerDetails(sellerRating);
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table DealerDetails fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
@@ -449,6 +459,7 @@ create table InactiveAppointment (
     foreign key (customerEmail) references User(email),
     foreign key (listingId) references Listing(listingId)
 );
+create index idx_TDC on InactiveAppointment(appointmentDateTime, dealerEmail, customerEmail);
 -- ActiveAppointment
 select 'ActiveAppointment' as '';
 create table ActiveAppointment (
@@ -468,6 +479,7 @@ create table ActiveAppointment (
     foreign key (customerEmail) references User(email),
     foreign key (listingId) references Listing(listingId)
 );
+create index idx_TDC on ActiveAppointment(appointmentDateTime, dealerEmail, customerEmail);
 -- Appointment view
 select 'Appointment' as '';
 create view Appointment as (
@@ -505,6 +517,10 @@ create table Car (
     foreign key (listingId) references Listing(listingId),
     primary key (VIN)
 );
+create index idx_height on Cars(height);
+create index idx_width on Cars(width);
+create index idx_length on Cars(length);
+create index idx_color on Cars(color);
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Car fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
@@ -596,6 +612,8 @@ create table DepreciationFactors (
     primary key (VIN),
     foreign key (VIN) references Car(VIN)
 );
+create index idx_savingsAmount on DepreciationFactors(savingsAmount);
+create index idx_salvage on DepreciationFactors(salvage);
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table DepreciationFactors fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
@@ -765,6 +783,8 @@ create table Engine (
     primary key (VIN),
     foreign key (VIN) references Car(VIN)
 );
+create index idx_horsepower on Engine(horsepower);
+create index idx_transmission on Engine(transmission);
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Engine fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
@@ -852,6 +872,8 @@ create table FuelSpecs (
     primary key (VIN),
     foreign key (VIN) references Car(VIN)
 );
+create index idx_fuelTankVolume on FuelSpecs(fuelTankVolume);
+create index idx_fuelType on FuelSpecs(fuelType);
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table FuelSpecs fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
@@ -942,6 +964,7 @@ create table Interior (
     primary key (VIN),
     foreign key (VIN) references Car(VIN)
 );
+create index idx_maximumSeating on Interior(maximumSeating);
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Interior fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
