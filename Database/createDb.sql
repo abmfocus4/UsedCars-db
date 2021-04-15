@@ -64,7 +64,7 @@ create table PhoneNumber (
 select 'Listing' as '';
 create table Listing (
     listingId int not null check(listingId > 0),
-    listingDate,
+    listingDate date,
     daysOnMarket int,
     description text,
     mainPictureURL varchar(400),
