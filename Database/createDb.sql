@@ -25,9 +25,9 @@ create table User (
     firstName varchar(125),
     lastName varchar(125),
     pass varchar(40) not null,
-    userType varchar(8) not null,
+    userType varchar(14) not null,
     primary key (email),
-    check(userType in ('Admin', 'Customer', 'Dealer'))
+    check(userType in ('Admin', 'Customer', 'Dealer', 'DataScientist'))
 );
 insert into User(email, firstName, lastName, pass, userType)
 values (
@@ -64,7 +64,7 @@ create table PhoneNumber (
 select 'Listing' as '';
 create table Listing (
     listingId int not null check(listingId > 0),
-    listingDate date not null check(isdate(listingDate)),
+    listingDate date not null,
     daysOnMarket int,
     description text,
     mainPictureURL varchar(400),
@@ -399,7 +399,7 @@ set listingId = @col39,
     sellerRating = nullif(@col52, '');
 -- Appointment
 select 'Appointment' as '';
-create table InactiveAppointment (
+create table Appointment (
     appointmentNumber int not null,
     listingId int not null,
     dealerEmail varchar(125) not null,
