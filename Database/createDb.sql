@@ -399,7 +399,7 @@ set listingId = @col39,
     sellerRating = nullif(@col52, '');
 -- Appointment
 select 'Appointment' as '';
-create table InactiveAppointment (
+create table Appointment (
     appointmentNumber int not null,
     listingId int not null,
     dealerEmail varchar(125) not null,
