@@ -77,9 +77,9 @@ create table InactiveListing (
     dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
     primary key (listingId)
 );
-create index idx_dealerEmail on InactiveListing(dealerEmail);
-create index idx_price on InactiveListing(price);
-create index idx_daysOnMarket on InactiveListing(daysOnMarket);
+create index idx_InactiveListing_dealerEmail on InactiveListing(dealerEmail);
+create index idx_InactiveListing_price on InactiveListing(price);
+create index idx_InactiveListing_daysOnMarket on InactiveListing(daysOnMarket);
 load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table InactiveListing fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
@@ -169,9 +169,9 @@ create table ActiveListing (
     primary key (listingId)
 );
 alter table ActiveListing auto_increment = 300000000;
-create index idx_dealerEmail on ActiveListing(dealerEmail);
-create index idx_price on ActiveListing(price);
-create index idx_daysOnMarket on ActiveListing(daysOnMarket);
+create index idx_ActiveListing_dealerEmail on ActiveListing(dealerEmail);
+create index idx_ActiveListing_price on ActiveListing(price);
+create index idx_ActiveListing_daysOnMarket on ActiveListing(daysOnMarket);
 -- Listing
 select 'Listing' as '';
 create view Listing as (
@@ -459,7 +459,7 @@ create table InactiveAppointment (
     foreign key (customerEmail) references User(email),
     foreign key (listingId) references Listing(listingId)
 );
-create index idx_TDC on InactiveAppointment(appointmentDateTime, dealerEmail, customerEmail);
+create index idx_InactiveAppointment_TDC on InactiveAppointment(appointmentDateTime, dealerEmail, customerEmail);
 -- ActiveAppointment
 select 'ActiveAppointment' as '';
 create table ActiveAppointment (
@@ -479,7 +479,7 @@ create table ActiveAppointment (
     foreign key (customerEmail) references User(email),
     foreign key (listingId) references Listing(listingId)
 );
-create index idx_TDC on ActiveAppointment(appointmentDateTime, dealerEmail, customerEmail);
+create index idx_ActiveAppointment_TDC on ActiveAppointment(appointmentDateTime, dealerEmail, customerEmail);
 -- Appointment view
 select 'Appointment' as '';
 create view Appointment as (
