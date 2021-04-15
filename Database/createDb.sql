@@ -64,7 +64,7 @@ create table PhoneNumber (
 select 'Listing' as '';
 create table Listing (
     listingId int not null check(listingId > 0),
-    listingDate date,
+    listingDate date not null check(isdate(listingDate)),
     daysOnMarket int,
     description text,
     mainPictureURL varchar(400),
@@ -73,7 +73,6 @@ create table Listing (
     activeListing varchar(5) default 'True' check(activeListing in ('False', 'True')),
     dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
     primary key (listingId),
-    check (listingDate not in ('0000-00-00'))
 );
 create index idx_dealerEmail on Listing(dealerEmail);
 create index idx_price on Listing(price);
@@ -147,7 +146,7 @@ load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into t
     @col66
 )
 set listingId = @col39,
-    listingDate = nullif(@col37, '0000-00-00'),
+    listingDate = @col37,
     daysOnMarket = @col11,
     description = @col13,
     mainPictureURL = @col41,
