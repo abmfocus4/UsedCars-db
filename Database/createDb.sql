@@ -67,15 +67,16 @@ create table PhoneNumber (
 -- InactiveListing
 select 'InactiveListing' as '';
 create table InactiveListing (
-    listingId int not null,
-    listingDate date not null,
+    listingId int not null check(listingId > 0),
+    listingDate,
     daysOnMarket int,
     description text,
     mainPictureURL varchar(400),
     majorOptions text,
     price decimal(9, 2) not null,
     dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
-    primary key (listingId)
+    primary key (listingId),
+    check (listingDate not in ('0000-00-00'))
 );
 create index idx_InactiveListing_dealerEmail on InactiveListing(dealerEmail);
 create index idx_InactiveListing_price on InactiveListing(price);
@@ -149,7 +150,7 @@ load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into t
     @col66
 )
 set listingId = @col39,
-    listingDate = @col37,
+    listingDate = nullif(@col37, '0000-00-00'),
     daysOnMarket = @col11,
     description = @col13,
     mainPictureURL = @col41,
@@ -159,14 +160,15 @@ set listingId = @col39,
 select 'ActiveListing' as '';
 create table ActiveListing (
     listingId int not null auto_increment,
-    listingDate date not null,
+    listingDate date,
     daysOnMarket int,
     description text,
     mainPictureURL varchar(400),
     majorOptions text,
     price decimal(9, 2) not null,
     dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
-    primary key (listingId)
+    primary key (listingId),
+    check (listingDate not in ('0000-00-00'))
 );
 alter table ActiveListing auto_increment = 300000000;
 create index idx_ActiveListing_dealerEmail on ActiveListing(dealerEmail);
