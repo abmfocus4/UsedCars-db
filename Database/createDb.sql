@@ -72,7 +72,7 @@ create table Listing (
     price decimal(9, 2) not null,
     activeListing varchar(5) default 'True' check(activeListing in ('False', 'True')),
     dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
-    primary key (listingId),
+    primary key (listingId)
 );
 create index idx_dealerEmail on Listing(dealerEmail);
 create index idx_price on Listing(price);
