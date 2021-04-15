@@ -7,6 +7,12 @@ from sqlalchemy.orm import Session, aliased
 from sqlalchemy.ext.declarative import declarative_base
 # this script also requires pymysql & cryptography to be installed with the below command
 # `pip3 install pymysql cryptography`
+from sklearn import tree
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import pandas as pd
+import graphviz 
 
 Base = declarative_base()
 
@@ -31,17 +37,19 @@ class Car(Base):
     vin = db.Column('VIN', db.String(17), primary_key=True, nullable=False)
     bodyType = db.Column('bodyType', db.String(40), nullable=True)
     height = db.Column('height', db.Numeric(4,1), nullable=True)
+    width = db.Column('width', db.Numeric(4,1), nullable=True)
+    length = db.Column('length', db.Numeric(4,1), nullable=True)
+    color = db.Column('color', db.String(125), nullable=False)
     year = db.Column('year', db.Integer, nullable=True)
     modelName = db.Column('modelName', db.String(40), nullable=True)
     franchiseMake = db.Column('franchiseMake', db.String(40), nullable=True)
     isFleet = db.Column('isFleet', db.String(5), nullable=True)
     isCab = db.Column('isCab', db.String(5), nullable=True)
-    isNew = db.Column('isNew', db.String(5), nullable=True)
     listingId = db.Column('listingId', db.Integer, db.ForeignKey("Listing.listingId"), nullable=False)
 
     def __repr__(self):
-        return "<Car(VIN='%s', bodyType='%s', height='%f', modelName='%s', franchiseMake='%s', isFleet='%s', isCab='%s', isNew='%s', listingId='%d)>" % (
-                             self.vin, self.bodyType, self.height, self.modelName, self.franchiseMake, self.isFleet, self.isCab, self.isNew, self.listingId)
+        return "<Car(VIN='%s', bodyType='%s', height='%f', width='%f', length='%f', color='%2', modelName='%s', franchiseMake='%s', isFleet='%s', isCab='%s', listingId='%d)>" % (
+                             self.vin, self.bodyType, self.height, self.width, self.length, self.color, self.modelName, self.franchiseMake, self.isFleet, self.isCab, self.listingId)
 
 class Listing(Base):
     __tablename__ = 'Listing'
@@ -210,8 +218,8 @@ g_filters = [
         "active": False
     },
     {
-        "name": "New",
-        "f_type": "boolean",
+        "name": "Color",
+        "f_type": "equality",
         "relationship": "",
         "value": "",
         "active": False
@@ -300,7 +308,6 @@ def print_listing(info_type, arg_id=0, arg_object=None):
             print("Model: " + str(dbCar.modelName))
             print("Body type: " + str(dbCar.bodyType))
             print("Year: " + str(dbCar.year))
-            print("New: " + str(dbCar.isNew))
             print("Cab: " + str(dbCar.isCab))
             print("")
             vin = dbCar.vin
@@ -499,9 +506,9 @@ def build_search(page):
             column = Car.modelName
         elif f['name'] == 'Price':
             column = Listing.price
-        elif f['name'] == 'New':
-            column = Car.isNew
-        
+        elif f['name'] == 'Color':
+            column = Car.color
+
         if f['relationship'] == ">":
             statement = statement.where(column > parse(f['value']))
         elif f['relationship'] == ">=":
@@ -1093,10 +1100,12 @@ def new_listing():
     make = input("Enter vehicle make: ")
     model = input("Enter vehicle model: ")
     height = input("Enter vehicle height (cm): ")
+    width = input("Enter vehicle width (cm): ")
+    length = input("Enter vehicle length (cm): ")
+    color = input("Enter vehicle color: ")
     bodyType = input("Enter vehicle body type: ")
     year = input("Enter vehicle year of make: ")
     price = input("Enter desired list price: ")
-    isNew = ynput("Is this vehicle new (y/n): ")
     isCab = ynput("Was this vehicle a cab (y/n): ")
     trimPackageID = input("Enter vehicle trim package identifier: ")
 
@@ -1170,17 +1179,16 @@ def new_listing():
         )
     print("")
     
-    if not isNew:
-        frameDamaged = ynput("Is the vehicle's frame damaged (y/n): ")
-        hasAccidents = ynput("Has this vehicle been involved in any accidents (y/n): ")
-        salvage = ynput("Is this vehicle salvage (y/n): ")
-        depreciationFactors = DepreciationFactors(
-            vin=format_for_db(vin, "string", 17),
-            frameDamaged=format_for_db(frameDamaged, "boolean"),
-            hasAccidents=format_for_db(hasAccidents, "boolean"),
-            salvage=format_for_db(salvage, "boolean")
-        )
-        print("")
+    frameDamaged = ynput("Is the vehicle's frame damaged (y/n): ")
+    hasAccidents = ynput("Has this vehicle been involved in any accidents (y/n): ")
+    salvage = ynput("Is this vehicle salvage (y/n): ")
+    depreciationFactors = DepreciationFactors(
+        vin=format_for_db(vin, "string", 17),
+        frameDamaged=format_for_db(frameDamaged, "boolean"),
+        hasAccidents=format_for_db(hasAccidents, "boolean"),
+        salvage=format_for_db(salvage, "boolean")
+    )
+    print("")
 
     if len(trimPackageID) > 0:
         trimPackage = TrimPackage(
@@ -1195,7 +1203,6 @@ def new_listing():
     print("Body type: " + bodyType)
     print("Year: " + year)
     print("Price: $" + price)
-    print("New: " + ("True" if isNew else "False"))
     print("Cab: " + ("True" if isCab else "False"))
     if trimPackage is not None:
         print_listing("trim", arg_object=trimPackage)
@@ -1207,8 +1214,6 @@ def new_listing():
         print_listing("fuel", arg_object=fuelSpecs)
     if hasWheelbase:
         print_listing("wheel", arg_object=wheelSystem)
-    if not isNew:
-        print_listing("depreciation", arg_object=depreciationFactors)
 
     print("")
 
@@ -1234,10 +1239,12 @@ def new_listing():
             vin=format_for_db(vin, "string", 17),
             bodyType=format_for_db(bodyType, "string", 40),
             height=format_for_db(height, "float", 4, 1),
+            length=format_for_db(length, "float", 4, 1),
+            width=format_for_db(width, "float", 4, 1),
+            color=format_for_db(color, "string", 125),
             year=format_for_db(year, "integer"),
             modelName=format_for_db(model, "string", 40),
             franchiseMake=format_for_db(make, "string", 40),
-            isNew=format_for_db(isNew, "boolean"),
             isCab=format_for_db(isCab, "boolean"),
             listingId=format_for_db(listing.listingId, "integer")
         )
@@ -1467,7 +1474,7 @@ def edit_basic(l_id):
 
     while True:
         if listing and car:
-            options = ["Body Type", "Height", "Year", "Model", "Make", "New", "Cab", "Price", "Description", "View Basic Information", "Save & Go Back"]
+            options = ["Body Type", "Height", "Year", "Model", "Make", "New", "Cab", "Price", "Description", "Width", "Length", "Color", "View Basic Information", "Save & Go Back"]
             selection = get_input(options)
             if selection > 0 and selection < len(options) - 1:
                 if selection == 1:
@@ -1486,14 +1493,20 @@ def edit_basic(l_id):
                     value = input("Enter make: ")
                     car.franchiseMake = format_for_db(value, "string", 40)
                 elif selection == 6:
-                    value = ynput("Is this vehicle new (y/n): ")
-                    car.isNew = format_for_db(value, "boolean")
-                elif selection == 7:
                     value = input("Was this vehicle a cab (y/n): ")
                     car.isCab = format_for_db(value, "boolean")
-                elif selection == 8:
+                elif selection == 7:
                     value = input("Enter desired list price: ")
                     listing.price = format_for_db(value, "float", 9, 2)
+                elif selection == 8:
+                    value = input("Enter width: ")
+                    car.width = format_for_db(value, "float", 9, 2)
+                elif selection == 9:
+                    value = input("Enter lenght: ")
+                    car.length = format_for_db(value, "float", 9, 2)
+                elif selection == 10:
+                    value = input("Enter color: ")
+                    car.color = format_for_db(value, "string", 40)
                 else:
                     value = input("Enter listing description: ")
                     listing.description = format_for_db(value, "string", 1000)
@@ -1509,10 +1522,12 @@ def edit_basic(l_id):
                 session.query(Car).filter(Car.vin == car.vin).update({
                     "bodyType": car.bodyType,
                     "height": car.height,
+                    "width": car.width,
+                    "length": car.length,
+                    "color": car.color,
                     "year": car.year,
                     "modelName": car.modelName,
                     "franchiseMake": car.franchiseMake,
-                    "isNew": car.isNew,
                     "isCab": car.isCab,
                 })
                 session.commit()
