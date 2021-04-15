@@ -28,7 +28,7 @@ create table User (
     email varchar(125),
     firstName varchar(125),
     lastName varchar(125),
-    pass varchar(40) not null,
+    password varchar(40) not null,
     userType varchar(8) not null,
     primary key (email),
     check(userType in ('Admin', 'Customer', 'Dealer'))
@@ -79,8 +79,8 @@ create table InactiveListing (
 );
 create index idx_dealerEmail on InactiveListing(dealerEmail);
 create index idx_price on InactiveListing(price);
-create index_idx_daysOnMarket on InactiveListing(daysOnMarket);
-load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Listing fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
+create index idx_daysOnMarket on InactiveListing(daysOnMarket);
+load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table InactiveListing fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
     @col3,
@@ -171,7 +171,7 @@ create table ActiveListing (
 alter table ActiveListing auto_increment = 300000000;
 create index idx_dealerEmail on ActiveListing(dealerEmail);
 create index idx_price on ActiveListing(price);
-create index_idx_daysOnMarket on ActiveListing(daysOnMarket);
+create index idx_daysOnMarket on ActiveListing(daysOnMarket);
 -- Listing
 select 'Listing' as '';
 create view Listing as (
