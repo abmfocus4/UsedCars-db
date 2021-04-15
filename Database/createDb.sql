@@ -28,7 +28,7 @@ create table User (
     email varchar(125),
     firstName varchar(125),
     lastName varchar(125),
-    password varchar(40) not null,
+    pass varchar(40) not null,
     userType varchar(8) not null,
     primary key (email),
     check(userType in ('Admin', 'Customer', 'Dealer'))
@@ -55,7 +55,7 @@ values (
         'Pass123!@#',
         'Admin'
     );
-create index idx_EP on User(email, password);
+create index idx_EP on User(email, pass);
 -- PhoneNumber
 select 'PhoneNumber' as '';
 create table PhoneNumber (
