@@ -12,12 +12,8 @@ drop table if exists DepreciationFactors;
 drop table if exists CarOwners;
 drop table if exists User;
 drop table if exists Car;
-drop view if exists Listing;
-drop table if exists ActiveListing;
-drop table if exists InactiveListing;
-drop view if exists Appointment;
-drop table if exists ActiveAppointment;
-drop table if exists InactiveAppointment;
+drop table if exists Listing;
+drop table if exists Appointment;
 -- Clean outfile
 \! rm -f cars_outfile.txt 
 tee cars_outfile.txt;
@@ -64,9 +60,9 @@ create table PhoneNumber (
     primary key(userEmail, phoneNumber),
     foreign key (userEmail) references User(email)
 );
--- InactiveListing
-select 'InactiveListing' as '';
-create table InactiveListing (
+-- Listing
+select 'Listing' as '';
+create table Listing (
     listingId int not null check(listingId > 0),
     listingDate,
     daysOnMarket int,
@@ -74,14 +70,15 @@ create table InactiveListing (
     mainPictureURL varchar(400),
     majorOptions text,
     price decimal(9, 2) not null,
+    activeListing varchar(5) default 'True' check(activeListing in ('False', 'True')),
     dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
     primary key (listingId),
     check (listingDate not in ('0000-00-00'))
 );
-create index idx_InactiveListing_dealerEmail on InactiveListing(dealerEmail);
-create index idx_InactiveListing_price on InactiveListing(price);
-create index idx_InactiveListing_daysOnMarket on InactiveListing(daysOnMarket);
-load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table InactiveListing fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
+create index idx_dealerEmail on Listing(dealerEmail);
+create index idx_price on Listing(price);
+create index idx_daysOnMarket on Listing(daysOnMarket);
+load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into table Listing fields terminated by ',' enclosed by '"' lines terminated by '\n' ignore 1 lines (
     @col1,
     @col2,
     @col3,
@@ -156,49 +153,8 @@ set listingId = @col39,
     mainPictureURL = @col41,
     majorOptions = @col42,
     price = @col49;
--- ActiveListing
-select 'ActiveListing' as '';
-create table ActiveListing (
-    listingId int not null auto_increment,
-    listingDate date,
-    daysOnMarket int,
-    description text,
-    mainPictureURL varchar(400),
-    majorOptions text,
-    price decimal(9, 2) not null,
-    dealerEmail varchar(125) default 'bmalapat@uwaterloo.ca',
-    primary key (listingId),
-    check (listingDate not in ('0000-00-00'))
-);
-alter table ActiveListing auto_increment = 300000000;
-create index idx_ActiveListing_dealerEmail on ActiveListing(dealerEmail);
-create index idx_ActiveListing_price on ActiveListing(price);
-create index idx_ActiveListing_daysOnMarket on ActiveListing(daysOnMarket);
--- Listing
-select 'Listing' as '';
-create view Listing as (
-    select listingId,
-        listingDate,
-        daysOnMarket,
-        description,
-        mainPictureURL,
-        majorOptions,
-        price,
-        dealerEmail
-    from InactiveListing
-)
-union
-(
-    select listingId,
-        listingDate,
-        daysOnMarket,
-        description,
-        mainPictureURL,
-        majorOptions,
-        price,
-        dealerEmail
-    from ActiveListing
-);
+update Listing
+set activeListing = 'False';
 -- Address
 select 'Address' as '';
 create table Address (
@@ -442,8 +398,8 @@ load data infile '/var/lib/mysql-files/01-Cars/used_cars_data.csv' ignore into t
 set listingId = @col39,
     franchiseDealer = @col20,
     sellerRating = nullif(@col52, '');
--- InactiveAppointment
-select 'InactiveAppointment' as '';
+-- Appointment
+select 'Appointment' as '';
 create table InactiveAppointment (
     appointmentNumber int not null,
     listingId int not null,
@@ -451,6 +407,7 @@ create table InactiveAppointment (
     customerEmail varchar(125) not null,
     appointmentDateTime datetime not null,
     information varchar(400),
+    active varchar(5) default 'True' check(active in ('False', 'True')),
     primary key (
         appointmentNumber,
         dealerEmail,
@@ -461,46 +418,7 @@ create table InactiveAppointment (
     foreign key (customerEmail) references User(email),
     foreign key (listingId) references Listing(listingId)
 );
-create index idx_InactiveAppointment_TDC on InactiveAppointment(appointmentDateTime, dealerEmail, customerEmail);
--- ActiveAppointment
-select 'ActiveAppointment' as '';
-create table ActiveAppointment (
-    appointmentNumber int not null,
-    listingId int not null,
-    dealerEmail varchar(125) not null,
-    customerEmail varchar(125) not null,
-    appointmentDateTime datetime not null,
-    information varchar(400),
-    primary key (
-        appointmentNumber,
-        dealerEmail,
-        customerEmail,
-        listingId
-    ),
-    foreign key (dealerEmail) references User(email),
-    foreign key (customerEmail) references User(email),
-    foreign key (listingId) references Listing(listingId)
-);
-create index idx_ActiveAppointment_TDC on ActiveAppointment(appointmentDateTime, dealerEmail, customerEmail);
--- Appointment view
-select 'Appointment' as '';
-create view Appointment as (
-    select appointmentNumber,
-        listingId,
-        dealerEmail,
-        customerEmail,
-        appointmentDateTime
-    from ActiveAppointment
-)
-union
-(
-    select appointmentNumber,
-        listingId,
-        dealerEmail,
-        customerEmail,
-        appointmentDateTime
-    from InactiveAppointment
-);
+create index idx_TDC on Appointment(appointmentDateTime, dealerEmail, customerEmail);
 -- Car
 select 'Car' as '';
 create table Car (
