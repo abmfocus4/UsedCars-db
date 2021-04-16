@@ -953,7 +953,7 @@ def appointment_detail(aptNum, dealerEmail, userEmail):
         else:
             statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
 
-        statement = statement.where(Appointment.appointmentNumber == aptNum and Appointment.dealerEmail == dealerEmail and Appointment.userEmail == userEmail)
+        statement = statement.where(Appointment.appointmentNumber == aptNum and Appointment.dealerEmail == dealerEmail and Appointment.customerEmail == userEmail)
         result = session.execute(statement).first()
         session.close()
 
