@@ -2163,7 +2163,6 @@ def dataMine():
     LabelEncoderObject = LabelEncoder()
     nodes['encoded_wheel_system'] = LabelEncoderObject.fit_transform(nodes['wheelSystem'].astype(str))
     nodes['encoded_transmission'] = LabelEncoderObject.fit_transform(nodes['transmission'].astype(str))
-    nodes['encoded_maximum_seating'] = LabelEncoderObject.fit_transform(nodes['maximumSeating'].astype(str))
     nodes['encoded_franchise_make'] = LabelEncoderObject.fit_transform(nodes['franchiseMake'].astype(str))
     nodes['encoded_fuel_type'] = LabelEncoderObject.fit_transform(nodes['fuelType'].astype(str))
     nodes['encoded_engine_type'] = LabelEncoderObject.fit_transform(nodes['engineType'].astype(str))
@@ -2174,7 +2173,7 @@ def dataMine():
     nodes['encoded_interior_color'] = LabelEncoderObject.fit_transform(nodes['interiorColor'].astype(str))
 
     #keep only the numerical verison
-    encoded_nodes = nodes.drop(['wheelSystem','transmission','maximumSeating','franchiseMake','fuelType','engineType','bodyType','franchiseDealer','trimName','color','interiorColor'],axis='columns')
+    encoded_nodes = nodes.drop(['wheelSystem','transmission','franchiseMake','fuelType','engineType','bodyType','franchiseDealer','trimName','color','interiorColor'],axis='columns')
 
     #seperate days on market into its own series
     leafs = encoded_nodes['daysOnMarket']
@@ -2200,7 +2199,7 @@ def dataMine():
     print('split the thing')
 
     #build the decision tree with the train sets
-    classifier = tree.DecisionTreeClassifier(max_depth=10,max_features='auto',random_state=0)
+    classifier = tree.DecisionTreeClassifier(max_depth=5,random_state=0)
     classifier = classifier.fit(node_train, leaf_train)
 
     print('fitted')
@@ -2218,13 +2217,15 @@ def dataMine():
     print('graphing - might take a while')
 
     try:
-        dot_data = tree.export_graphviz(classifier, out_file=None) 
+        list_of_class_names = ["sells fast","sells slow"]
+        dot_data = tree.export_graphviz(classifier, out_file=None,feature_names=node_train.columns,class_names=list_of_class_names,filled=True) 
         graph = graphviz.Source(dot_data) 
         graph.render("DaysOnMarketGraph") 
     except:
         print("an error occured, try seeing if you installed graphviz properly")
-        print("you might have to install the graphviz binaries")
+        print("you will need to install graphiz both on pip AND on its own")
 
+    print("categories used for decision tree")
     print(node_train.columns)
 
 startup()
