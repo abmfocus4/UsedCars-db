@@ -889,7 +889,8 @@ def appointments():
         else:
             statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
         
-        statement = statement.where(Appointment.active == "True")
+        if (g_userType != "Admin"):
+            statement = statement.where(Appointment.active == "True")
 
         results = session.execute(statement).all()
         session.close()
@@ -923,6 +924,8 @@ def appointments():
                                                                                                                                             date=appointment.appointmentDateTime.strftime("%x"),
                                                                                                                                             time=appointment.appointmentDateTime.strftime("%X")
                                                                                                                                         ))
+            print(options)
+            print(option_ids)
 
             selection = get_input(options)
             if (selection > 0 and selection <= len(options)):
@@ -953,8 +956,8 @@ def appointment_detail(aptNum, dealerEmail, userEmail):
         else:
             statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
 
-        statement = statement.where(Appointment.appointmentNumber == aptNum and Appointment.dealerEmail == dealerEmail and Appointment.customerEmail == userEmail)
-        result = session.execute(statement).first()
+        statement = statement.where(Appointment.appointmentNumber == aptNum).where(Appointment.dealerEmail == dealerEmail).where(Appointment.customerEmail == userEmail).where(Appointment.active == "True")
+        result = session.execute(statement).one()
         session.close()
 
         if (g_userType == "Customer"):
