@@ -25,7 +25,7 @@ class User(Base):
     firstName = db.Column('firstName', db.String(125), nullable=True)
     lastName = db.Column('lastName', db.String(125), nullable=True)
     password = db.Column('pass', db.String(40), nullable=False)
-    userType = db.Column('userType', db.String(8), nullable=False)
+    userType = db.Column('userType', db.String(14), nullable=False)
 
     def __repr__(self):
         return "<User(email='%s', firstName='%s', lastName='%s', pass='%s', userType='%s')>" % (
@@ -629,17 +629,28 @@ def main():
     if (g_userType != "Customer"):
         options.extend(["Create Listing", "View Your Listings"])
 
+    if (g_userType == "Admin" or g_userType == "DataScientist"):
+        options.extend(["DataMine"])
+
+    if (g_userType == "DataScientist"):
+        options.remove("Search Listings")
+        options.remove("View Appointments")
+        options.remove("Create Listing")
+        options.remove("View Your Listings")    
+
     nav_down("main")
     while True:
         selection = get_input(options)
-        if (selection == 1):
+        if ("Search Listings" in options and selection == options.index("Search Listings") +1):
             search()
-        elif (selection == 2):
+        elif ("View Appointments" in options and selection == options.index("View Appointments") +1):
             appointments()
-        elif (selection == 3):
+        elif ("Create Listing" in options and selection == options.index("Create Listing") +1):
             new_listing()
-        elif (selection == 4):
+        elif ("View Your Listings" in options and selection == options.index("View Your Listings") +1):
             owned_listings()
+        elif ("DataMine" in options and selection == options.index("DataMine") +1):
+            dataMine()
         elif (selection == 0):
             continue
         else:
@@ -681,13 +692,18 @@ def login():
                 check_email = re.search("^\S+@\S+\.\S+$", g_email)
                 exists = existing_user(g_email)
 
-            userType = parse(input("Are you a Customer (1) or a Dealer (2): "), False)
-            while userType != 1 and userType != 2:
+            userType = parse(input("Are you a Customer (1) or a Dealer (2) or a DataScientist (3): "), False)
+            while userType != 1 and userType != 2 and userType != 3:
                 print("")
                 print("Invalid selection.")
-                userType = input("Are you a Customer (1) or a Dealer (2): ")
+                userType = input("Are you a Customer (1) or a Dealer (2) or a DataScientist (3): ")
 
-            g_userType = "Customer" if userType == 1 else "Dealer"
+            if (userType == 1):
+                g_userType = "Customer"
+            elif (userType == 2):
+                g_userType = "Dealer"
+            else:
+                g_userType = "DataScientist"
 
             g_firstName = input("Enter your first name: ")
             g_lastname = input("Enter your last name: ")
@@ -707,12 +723,12 @@ def login():
             print("")
             print("Email: " + g_email)
             print("Name: " + g_firstName + " " + g_lastname)
-            print("Account type: " + userType)
+            print("Account type: " + g_userType)
             confirm = input("Type 'confirm' to create your account, or anything else to return to the login screen: ")
             if confirm.lower() != "confirm":
                 continue
 
-            g_user = User(email=g_email, firstName=g_firstName, lastName=g_lastname, password=g_password, userType=userType)
+            g_user = User(email=g_email, firstName=g_firstName, lastName=g_lastname, password=g_password, userType=g_userType)
 
             session = Session(engine)
             session.add(g_user)
@@ -2088,5 +2104,123 @@ def selectsort():
             sys.exit()
 
     nav_up()
+
+def days_to_class(x):
+        '''
+        if x < 6:  #very fast
+             return 0
+        elif x >= 6 and x < 35:  #fast
+             return 1
+        elif x >= 35 and x < 77:  #average
+             return 2
+        elif x >= 100 and x < 154:  #slow
+             return 3
+        elif x >= 154:  #very slow
+             return 4
+        
+
+        if x < 14:  #very fast
+             return 0
+        elif x >= 14 and x < 90:  #fast
+             return 1
+        elif x >= 90:  #average
+             return 2
+        
+        '''
+        if x < 77:  #very fast
+             return 0
+        elif x >= 77:  #fast
+             return 1
+        
+
+# Start Datamining
+def dataMine():
+    
+    Car_data = pd.read_sql_query('select bodyType,height,width,length,color,year,franchiseMake from Car',connection)
+    Interior_data = pd.read_sql_query('select backLegroom,frontLegroom,interiorColor,maximumSeating from Interior',connection)
+    Wheel_system_data = pd.read_sql_query('select wheelSystem,wheelbase from WheelSystem',connection)
+    Engine_data = pd.read_sql_query('select engineType,engineDisplacement,horsepower,transmission from Engine',connection)
+    Fuel_specs_data = pd.read_sql_query('select fuelTankVolume,fuelType from FuelSpecs',connection)
+    Trim_package_data = pd.read_sql_query('select trimName from TrimPackage',connection)
+    Listing_data = pd.read_sql_query('select daysOnMarket,price from Listing',connection)
+    Dealer_data = pd.read_sql_query('select franchiseDealer from DealerDetails',connection)
+
+    Car_data = Car_data.join(Interior_data)
+    Car_data = Car_data.join(Wheel_system_data)
+    Car_data = Car_data.join(Engine_data)
+    Car_data = Car_data.join(Fuel_specs_data)
+    Car_data = Car_data.join(Trim_package_data)
+    Car_data = Car_data.join(Listing_data)
+    Car_data = Car_data.join(Dealer_data)
+    nodes = Car_data
+
+    #print(nodes)
+    
+    LabelEncoderObject = LabelEncoder()
+    nodes['encoded_wheel_system'] = LabelEncoderObject.fit_transform(nodes['wheelSystem'].astype(str))
+    nodes['encoded_transmission'] = LabelEncoderObject.fit_transform(nodes['transmission'].astype(str))
+    nodes['encoded_maximum_seating'] = LabelEncoderObject.fit_transform(nodes['maximumSeating'].astype(str))
+    nodes['encoded_franchise_make'] = LabelEncoderObject.fit_transform(nodes['franchiseMake'].astype(str))
+    nodes['encoded_fuel_type'] = LabelEncoderObject.fit_transform(nodes['fuelType'].astype(str))
+    nodes['encoded_engine_type'] = LabelEncoderObject.fit_transform(nodes['engineType'].astype(str))
+    nodes['encoded_body_type'] = LabelEncoderObject.fit_transform(nodes['bodyType'].astype(str))
+    nodes['encoded_franchise_dealer'] = LabelEncoderObject.fit_transform(nodes['franchiseDealer'].astype(str))
+    nodes['encoded_trim_name'] = LabelEncoderObject.fit_transform(nodes['trimName'].astype(str))
+    nodes['encoded_exterior_color'] = LabelEncoderObject.fit_transform(nodes['color'].astype(str))
+    nodes['encoded_interior_color'] = LabelEncoderObject.fit_transform(nodes['interiorColor'].astype(str))
+
+    #keep only the numerical verison
+    encoded_nodes = nodes.drop(['wheelSystem','transmission','maximumSeating','franchiseMake','fuelType','engineType','bodyType','franchiseDealer','trimName','color','interiorColor'],axis='columns')
+
+    #seperate days on market into its own series
+    leafs = encoded_nodes['daysOnMarket']
+    encoded_nodes = encoded_nodes.drop('daysOnMarket', axis='columns')
+
+     #sort through the days on market into 5 categories
+    print('Starting apply function')
+    leafCat = leafs.apply(days_to_class)
+
+    #join days on market back into encoded so we can clean out any rows that have nulls so it dosen't affect the decision tree
+    encoded_nodes = encoded_nodes.join(leafCat)
+    encoded_nodes = encoded_nodes.dropna()
+
+    #print(encoded_nodes)
+
+    #seperate the clean set into the leafs and potential nodes
+    leafs_full = encoded_nodes['daysOnMarket']
+    nodes_full = encoded_nodes.drop('daysOnMarket', axis='columns')
+
+    #split into test and training sets for the decision trees
+    node_train,node_test,leaf_train,leaf_test = train_test_split(nodes_full,leafs_full,test_size=0.2,train_size=0.8,random_state=81)
+
+    print('split the thing')
+
+    #build the decision tree with the train sets
+    classifier = tree.DecisionTreeClassifier(max_depth=10,max_features='auto',random_state=0)
+    classifier = classifier.fit(node_train, leaf_train)
+
+    print('fitted')
+
+    #make predictions on test set
+    leaf_predicted = classifier.predict(node_test)
+
+    print('predict test set')
+
+    #measure the accuracy
+    print(accuracy_score(leaf_test,leaf_predicted)*100)
+
+    print('accuracy tested')
+
+    print('graphing - might take a while')
+
+    try:
+        dot_data = tree.export_graphviz(classifier, out_file=None) 
+        graph = graphviz.Source(dot_data) 
+        graph.render("DaysOnMarketGraph") 
+    except:
+        print("an error occured, try seeing if you installed graphviz properly")
+        print("you might have to install the graphviz binaries")
+
+    print(node_train.columns)
 
 startup()
