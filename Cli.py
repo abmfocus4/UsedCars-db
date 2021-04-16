@@ -631,7 +631,7 @@ def main():
     if (g_userType != "Customer"):
         options.extend(["Create Listing", "View Your Listings"])
 
-    if (g_userType == "Admin" or g_userType == "DataScientist"):
+    if (g_userType == "DataScientist"):
         options.extend(["DataMine"])
 
     if (g_userType == "DataScientist"):
