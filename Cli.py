@@ -2252,7 +2252,7 @@ def dataMine():
     print('split the thing')
 
     #build the decision tree with the train sets
-    classifier = tree.DecisionTreeClassifier(max_depth=5,random_state=0)
+    classifier = tree.DecisionTreeClassifier(max_depth=6,random_state=0)
     classifier = classifier.fit(node_train, leaf_train)
 
     print('fitted')
