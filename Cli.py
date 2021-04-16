@@ -528,6 +528,8 @@ def build_search(page):
                 val = f['value']
             elif f['f_type'] == "range":
                 val = parse(f['value'])
+            elif f['f_type'] == "boolean":
+                val = "True" if f['value'] else "False"
             statement = statement.where(column != val)
         elif f['relationship'] == "<=":
             statement = statement.where(column <= parse(f['value']))
@@ -594,7 +596,7 @@ def get_input(options):
     selection = parse(input("Select an option: "))
     while (selection < -1 or selection > len(options) and len(options) > 0):
         print("Invalid input.")
-        list_options(prompt, options)
+        list_options(options)
         selection = parse(input("Select an option: "))
     return selection
 
@@ -1230,6 +1232,8 @@ def new_listing():
         print_listing("fuel", arg_object=fuelSpecs)
     if hasWheelbase:
         print_listing("wheel", arg_object=wheelSystem)
+    
+    print_listing("depreciation", arg_object=depreciationFactors)
 
     print("")
 
@@ -1490,7 +1494,7 @@ def edit_basic(l_id):
 
     while True:
         if listing and car:
-            options = ["Body Type", "Height", "Year", "Model", "Make", "New", "Cab", "Price", "Description", "Width", "Length", "Color", "View Basic Information", "Save & Go Back"]
+            options = ["Body Type", "Height", "Year", "Model", "Make", "New", "Cab", "Price", "Width", "Length", "Color", "Description", "View Basic Information", "Save & Go Back"]
             selection = get_input(options)
             if selection > 0 and selection < len(options) - 1:
                 if selection == 1:
@@ -1516,13 +1520,13 @@ def edit_basic(l_id):
                     listing.price = format_for_db(value, "float", 9, 2)
                 elif selection == 8:
                     value = input("Enter width: ")
-                    car.width = format_for_db(value, "float", 9, 2)
+                    car.width = format_for_db(value, "float", 4, 1)
                 elif selection == 9:
                     value = input("Enter lenght: ")
-                    car.length = format_for_db(value, "float", 9, 2)
+                    car.length = format_for_db(value, "float", 4, 1)
                 elif selection == 10:
                     value = input("Enter color: ")
-                    car.color = format_for_db(value, "string", 40)
+                    car.color = format_for_db(value, "string", 125)
                 else:
                     value = input("Enter listing description: ")
                     listing.description = format_for_db(value, "string", 1000)
