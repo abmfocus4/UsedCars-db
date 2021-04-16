@@ -924,8 +924,6 @@ def appointments():
                                                                                                                                             date=appointment.appointmentDateTime.strftime("%x"),
                                                                                                                                             time=appointment.appointmentDateTime.strftime("%X")
                                                                                                                                         ))
-            print(options)
-            print(option_ids)
 
             selection = get_input(options)
             if (selection > 0 and selection <= len(options)):
@@ -972,7 +970,7 @@ def appointment_detail(aptNum, dealerEmail, userEmail):
             print("Customer: " + result[2].firstName + " " + result[2].lastName)
             print("Customer email: " + result[0].customerEmail)
         print("Appointment date & time: " + result.Appointment.appointmentDateTime.strftime("%c"))
-        print("Extra information: " + result.Appointment.information)
+        print("Extra information: " + str(result.Appointment.information))
         
         options = ["Edit Appointment", "Cancel Appointment"]
         selection = get_input(options)
@@ -1017,7 +1015,8 @@ def edit_appointment(aptNum, dealerEmail, userEmail):
 
     while True:
         print("Appointment date & time: " + appointmentDateTime.strftime("%c"))
-        print("Extra information: " + information)
+        if (information):
+            print("Extra information: " + information)
 
         options = ["Date & Time", "Information", "Save & Go Back"]
         selection = get_input(options)
@@ -1062,9 +1061,11 @@ def edit_appointment(aptNum, dealerEmail, userEmail):
         elif selection == len(options):
             session = Session(engine)
             statement = session.query(Appointment).filter(
-                Appointment.appointmentNumber == aptNum and
-                Appointment.dealerEmail == dealerEmail and
-                Appointment.customerEmail == customerEmail
+                Appointment.appointmentNumber == aptNum
+            ).filter(
+                Appointment.dealerEmail == dealerEmail
+            ).filter(
+                Appointment.customerEmail == userEmail
             ).update({
                 "information": format_for_db(information, "string", 1000),
                 "appointmentDateTime": appointmentDateTime
@@ -1084,9 +1085,11 @@ def edit_appointment(aptNum, dealerEmail, userEmail):
 def remove_appointment(aptNum, dealerEmail, userEmail):
     session = Session(engine)
     session.query(Appointment).filter(
-            Appointment.appointmentNumber == aptNum and
-            Appointment.dealerEmail == dealerEmail and
-            Appointment.customerEmail == customerEmail
+            Appointment.appointmentNumber == aptNum
+        ).filter(
+            Appointment.dealerEmail == dealerEmail
+        ).filter(
+            Appointment.customerEmail == userEmail
         ).update({"active":"False"})
     session.commit()
     session.close()
