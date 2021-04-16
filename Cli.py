@@ -494,7 +494,10 @@ def existing_user(email):
 # construct & return a search statement using the
 # filters and sorting criteria the user has selected
 def build_search(page):
-    statement = db.select(Car, Listing).join(Listing).where(Listing.activeListing == "True")
+    statement = db.select(Car, Listing).join(Listing)
+
+    if g_userType != 'Admin':
+        statement = statement.where(Listing.activeListing == "True")
 
     for f in filter(active_filter, g_filters):
         column = Car
@@ -615,30 +618,38 @@ def nav_up():
 
 # return the current location in the CLI
 def get_loc():
-    location = ""
+    userType = ""
+    location = "\033[1;37;40m"
     for level in g_loc:
         location += "/" + level
-    print("")
-    print(location)
+
+    if g_userType == "Admin":
+        userType = "\033[1;32;40m[Admin]\033[0m | "
+    elif g_userType == "Customer":
+        userType = "\033[1;31;40m[Customer]\033[0m | "
+    elif g_userType == "Dealer":
+        userType = "\033[1;36;40m[Dealer]\033[0m | "
+    elif g_userType == "DataScientist":
+        userType = "\033[1;35;40m[Dealer]\033[0m | "
+
+    location += "\033[0m"
+    if len(g_loc) > 0:
+        print("")
+        print(userType + location)
 
 def active_filter(f):
     return f["active"]
 
 # main view to navigate the app
 def main():
-    options = ["Search Listings", "View Appointments"]
+    options = []
 
-    if (g_userType != "Customer"):
-        options.extend(["Create Listing", "View Your Listings"])
-
-    if (g_userType == "DataScientist"):
+    if g_userType != "DataScientist":
+        options = ["Search Listings", "View Appointments"]
+        if g_userType != "Customer":
+            options.extend(["Create Listing", "View Your Listings"])
+    else:
         options.extend(["DataMine"])
-
-    if (g_userType == "DataScientist"):
-        options.remove("Search Listings")
-        options.remove("View Appointments")
-        options.remove("Create Listing")
-        options.remove("View Your Listings")    
 
     nav_down("main")
     while True:
@@ -780,13 +791,13 @@ def new_appointment(l_id):
     nav_down("new_appointment")
 
     session = Session(engine, future=True)
-    statement = db.select(Listing, User, Car).join(User, Listing.dealerEmail == User.email).where(Listing.listingId == l_id)
+    statement = db.select(Listing, User, Car).join(User, Listing.dealerEmail == User.email).join(Car).where(Listing.listingId == l_id)
     result = session.execute(statement).first()
     session.close()
 
     dealerEmail = result.Listing.dealerEmail
 
-    print("You're setting up a meeting with %s regarding the purchase of a %s.".format(str(result.User.firstName) + " " + str(result.User.lastName), str(result.Car.franchiseMake) + " " + str(result.Car.modelName)))
+    print("You're setting up a meeting with {name:s} regarding the purchase of a {car:s}.".format(name=str(result.User.firstName) + " " + str(result.User.lastName), car=str(result.Car.franchiseMake) + " " + str(result.Car.modelName)))
     print("Please fill out the below information.")
 
     appointmentDateTime = 0
@@ -860,33 +871,37 @@ def new_appointment(l_id):
 def appointments():
     nav_down("appointments")
 
-    print("")
-    sys.stdout.write("\rRetrieving appointments (this may take some time)...")
+    while True:
 
-    dealer = aliased(User)
-    customer = aliased(User)
+        print("")
+        sys.stdout.write("\rRetrieving appointments (this may take some time)...")
 
-    session = Session(engine, future=True)
-    statement = 0
+        dealer = aliased(User)
+        customer = aliased(User)
 
-    if (g_userType == "Dealer"):
-        statement = db.select(Appointment, User).join(User, Appointment.customerEmail == User.email).where(Appointment.dealerEmail == g_email)
-    elif (g_userType == "Customer"):
-        statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email).where(Appointment.customerEmail == g_email)
-    else:
-        statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
-    
-    statement = statement.where(Appointment.active == "True")
+        session = Session(engine, future=True)
+        statement = 0
 
-    results = session.execute(statement).all()
-    session.close()
+        if (g_userType == "Dealer"):
+            statement = db.select(Appointment, User).join(User, Appointment.customerEmail == User.email).where(Appointment.dealerEmail == g_email)
+        elif (g_userType == "Customer"):
+            statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email).where(Appointment.customerEmail == g_email)
+        else:
+            statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
+        
+        statement = statement.where(Appointment.active == "True")
 
-    if (len(results) == 0):
-        sys.stdout.write("\rLooks like you don't have any appointments! You can create them from the detail view of a listing.")
-        sys.stdout.flush()
-    else:
-        while True:
+        results = session.execute(statement).all()
+        session.close()
+
+        if (len(results) == 0):
+            sys.stdout.write("\rLooks like you don't have any appointments! You can create them from the detail view of a listing.")
+            sys.stdout.flush()
+            print("")
+            break
+        else:
             sys.stdout.write("\rYou can see your appointments below; select one to view it in more detail, edit, or delete it.")
+            sys.stdout.flush()
             print("")
             options = []
             option_ids = []
@@ -958,12 +973,12 @@ def appointment_detail(aptNum, dealerEmail, userEmail):
         
         options = ["Edit Appointment", "Cancel Appointment"]
         selection = get_input(options)
-        if selection > 0 and selection < len(options):
+        if selection > 0 and selection <= len(options):
             if selection == 1:
                 edit_appointment(aptNum, dealerEmail, userEmail)
             else:
                 remove_appointment(aptNum, dealerEmail, userEmail)
-                print("Appointment removed.")
+                print("Appointment cancelled.")
                 break
         elif selection == 0:
             break
@@ -977,31 +992,32 @@ def appointment_detail(aptNum, dealerEmail, userEmail):
 def edit_appointment(aptNum, dealerEmail, userEmail):
     nav_down("edit_appointment")
 
+    dealer = aliased(User)
+    customer = aliased(User)
+
+    session = Session(engine, future=True)
+    statement = 0
+
+    if (g_userType == "Customer"):
+        statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email)
+    elif (g_userType == "Dealer"):
+        statement = db.select(Appointment, User).join(User, Appointment.userEmail == User.email)
+    else:
+        statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
+
+    statement = statement.where(Appointment.appointmentNumber == aptNum and Appointment.dealerEmail == dealerEmail and Appointment.userEmail == userEmail)
+    result = session.execute(statement).first()
+    session.close()
+
+    appointmentDateTime = result.Appointment.appointmentDateTime
+    information = result.Appointment.information
+
     while True:
-        dealer = aliased(User)
-        customer = aliased(User)
+        print("Appointment date & time: " + appointmentDateTime.strftime("%c"))
+        print("Extra information: " + information)
 
-        session = Session(engine, future=True)
-        statement = 0
-
-        if (g_userType == "Customer"):
-            statement = db.select(Appointment, User).join(User, Appointment.dealerEmail == User.email)
-        elif (g_userType == "Dealer"):
-            statement = db.select(Appointment, User).join(User, Appointment.userEmail == User.email)
-        else:
-            statement = db.select(Appointment, dealer, customer).join(dealer, Appointment.dealerEmail == dealer.email).join(customer, Appointment.customerEmail == customer.email)
-
-        statement = statement.where(Appointment.appointmentNumber == aptNum and Appointment.dealerEmail == dealerEmail and Appointment.userEmail == userEmail)
-        result = session.execute(statement).first()
-        session.close()
-
-        print("Appointment date & time: " + result.Appointment.appointmentDateTime.strftime("%c"))
-        print("Extra information: " + result.Appointment.information)
-
-        options = ["Date & Time", "Information"]
+        options = ["Date & Time", "Information", "Save & Go Back"]
         selection = get_input(options)
-        appointmentDateTime = result.Appointment.appointmentDateTime
-        information = result.Appointment.information
         if selection > 0 and selection < len(options):
             if selection == 1:
                 while True:
@@ -1012,33 +1028,52 @@ def edit_appointment(aptNum, dealerEmail, userEmail):
                         hour = int(appointmentTime[0:2])
                         minute = int(appointmentTime[3:5])
                         if hour < 0 or hour > 23 or minute < 0 or minute > 59:
-                            print("Please enter a valid time.")
+                            print("Please enter a valid time (HH:MM, 24hr).")
                             continue
+                        break
                     except ValueError:
-                        print("Please enter a valid time.")
+                        print("Please enter a valid time (HH:M, 24hr).")
                         continue
 
-                    appointmentDateTime = datetime.datetime(
-                        int(appointmentDateTime[4:8]),
-                        int(appointmentDateTime[2:4]),
-                        int(appointmentDateTime[0:2]),
-                        hour,
-                        minute
-                    )
-                    break
+                while True:
+                    appointmentDate = input("When would you like to schedule the appointment for (DDMMYYYY): ")
+                    try:
+                        int(appointmentDate)
+                        if (len(appointmentDate) != 8):
+                            print("Please enter a valid date (DDMMYYYY).")
+                            continue
+                        break
+                    except ValueError:
+                        print("Please enter a valid date (DDMMYYYY).")
+                        continue
+
+                appointmentDateTime = datetime.datetime(
+                    int(appointmentDate[4:8]),
+                    int(appointmentDate[2:4]),
+                    int(appointmentDate[0:2]),
+                    hour,
+                    minute
+                )
             else:
                 information = input("Please enter any extra information you'd like to attach to the appointment: ")
-        session = Session(engine)
-        statement = session.update(Appointment).filter_by(
-            Appointment.appointmentNumber == aptNum and
-            Appointment.dealerEmail == dealerEmail and
-            Appointment.customerEmail == customerEmail
-        ).values({
-            "information": information,
-            "appointmentDateTime": appointmentDateTime
-        })
-        session.commit()
-        session.close()
+        elif selection == len(options):
+            session = Session(engine)
+            statement = session.query(Appointment).filter(
+                Appointment.appointmentNumber == aptNum and
+                Appointment.dealerEmail == dealerEmail and
+                Appointment.customerEmail == customerEmail
+            ).update({
+                "information": format_for_db(information, "string", 1000),
+                "appointmentDateTime": appointmentDateTime
+            })
+            session.commit()
+            session.close()
+            print("Appointment updated.")
+            break
+        elif selection == 0:
+            break
+        elif selection == -1:
+            sys.exit()
 
     nav_up()
 
@@ -1075,9 +1110,11 @@ def owned_listings():
         if (len(results) == 0):
             sys.stdout.write("\rLooks like you don't have any listings! You can create them from the main page.")
             sys.stdout.flush()
+            print("")
             break
         else:
             sys.stdout.write("\rYou can see your listings below; select one to view it in more detail, edit, or remove it.")
+            sys.stdout.flush()
             print("")
             options = []
             option_ids = []
@@ -1328,6 +1365,10 @@ def display():
         result = session.execute(statement).all()
         session.close()
 
+        if page > 1 and len(result) == 0:
+            page -= 1
+            continue
+
         sys.stdout.write("\rSelect a listing to view it in detail. [Page {page:d}]\n".format(page=page))
         sys.stdout.flush()
 
@@ -1373,12 +1414,12 @@ def detail(l_id):
     while True:
         if (g_userType == "Dealer"):
             if result.Listing.dealerEmail == g_email:
-                options = ["Edit Listing", "Remove Listing"]
+                options = ["Edit Listing", "Remove Listing", "Show Listing Details"]
                 owned = True
         elif (g_userType == "Customer"):
-            options = ["Make An Appointment"]
+            options = ["Make An Appointment", "Show Listing Details"]
         else:
-            options = ["Make An Appointment", "Edit Listing", "Remove Listing"]
+            options = ["Make An Appointment", "Edit Listing", "Remove Listing", "Show Listing Details"]
             admin = True
         selection = get_input(options)
         if owned and not admin:
@@ -1388,6 +1429,8 @@ def detail(l_id):
                 removelisting(l_id)
                 nav_up()
                 return
+            elif selection == 3:
+                print_listing("all", l_id)
             elif (selection == 0):
                 nav_up()
                 return
@@ -1398,6 +1441,8 @@ def detail(l_id):
                 new_appointment(result.Listing.listingId)
                 nav_up()
                 return
+            elif selection == 2:
+                print_listing("all", l_id)
             elif selection == 0:
                 nav_up()
                 return
@@ -1412,6 +1457,8 @@ def detail(l_id):
             elif selection == 3:
                 removelisting(l_id)
                 break
+            elif selection == 4:
+                print_listing("all", l_id)
             elif selection == 0:
                 break
             else:
@@ -2084,14 +2131,14 @@ def selectsort():
     for i, sort in enumerate(g_sorting):
         if (sort["active"]):
             current = sort["name"] + " [" + ("High-Low" if sort["type"] == "inverted" else "Low-High") + "]"
-            current_index = i
+            currentIndex = i
         options.append(sort["name"] + " [" + ("High-Low" if sort["type"] == "inverted" else "Low-High") + "]")
     
     while True:
         print("")
         print("Active sort: " + current)
         selection = get_input(options)
-        if (selection > 0 and selection < len(options)):
+        if (selection > 0 and selection <= len(options)):
             if currentIndex == selection - 1:
                 g_sorting[selection - 1]["active"] = False
                 currentIndex = -1
@@ -2102,9 +2149,9 @@ def selectsort():
                 g_sorting[selection - 1]["active"] = True
                 currentIndex = selection - 1
                 current = g_sorting[selection - 1]["name"] + " [" + ("High-Low" if g_sorting[selection - 1]["type"] == "inverted" else "Low-High") + "]"
-        elif (selection == 0):
+        elif selection == 0:
             break
-        else:
+        elif selection == -1:
             sys.exit()
 
     nav_up()
