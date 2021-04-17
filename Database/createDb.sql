@@ -63,7 +63,7 @@ create table PhoneNumber (
 -- Listing
 select 'Listing' as '';
 create table Listing (
-    listingId int not null check(listingId > 0),
+    listingId int not null AUTO_INCREMENT,
     listingDate date not null,
     daysOnMarket int,
     description text,
